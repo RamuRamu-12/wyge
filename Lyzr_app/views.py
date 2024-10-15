@@ -330,7 +330,7 @@ def create_openai_environment(agent_details):
                 {"role": "system", "content": agent_details['system_prompt']},
                 {"role": "user", "content": agent_details['agent_description']}
             ],
-            "max_tokens": 150
+            "max_tokens": 1500
         }
 
         # Make the POST request to OpenAI API using correct 'requests' module
@@ -415,7 +415,7 @@ def send_prompt_to_openai(api_key, agent, user_prompt):
                 {"role": "system", "content": agent[2]},  # system_prompt from agent details
                 {"role": "user", "content": user_prompt}  # user input prompt
             ],
-            "max_tokens": 150  # Modify as per the requirement
+            "max_tokens": 1500  # Modify as per the requirement
         }
 
         # Make the POST request to OpenAI API
