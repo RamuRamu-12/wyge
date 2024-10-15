@@ -217,11 +217,23 @@ def delete_agent(request, agent_id):
 
 
 # Read all Agents
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
 @api_view(['GET'])
 def read_all_agents(request):
     try:
         # Fetch all agents from the database
         agents = db.get_all_agents()
+
+        # Check if any agents are returned
+        if not agents:
+            return Response({"message": "No agents found"}, status=404)
 
         # Structure the agents' data for JSON response
         agents_data = [
@@ -237,8 +249,13 @@ def read_all_agents(request):
         ]
 
         return Response({"agents": agents_data}, status=200)
+
     except Exception as e:
-        return Response({"error": str(e)}, status=400)
+        # Log the error for further investigation
+        logger.error(f"Error fetching agents: {str(e)}")
+
+        # Return a user-friendly error message
+        return Response({"error": "An error occurred while fetching agents"}, status=500)
 
 
 #Creation of the openai environment.
