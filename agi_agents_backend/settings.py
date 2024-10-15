@@ -30,7 +30,8 @@ INSTALLED_APPS = [
     'Lyzr_app',              # Another app (Lyzr)
     'linkedin_app',          # App from second project (LinkedIn)
     'Email_Blog_app',        # Additional app from second settings
-    'corsheaders',           # Middleware for cross-origin requests
+    'corsheaders',
+    'rest_framework',# Middleware for cross-origin requests
 ]
 
 MIDDLEWARE = [
