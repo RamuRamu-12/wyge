@@ -531,7 +531,8 @@ def run_openai_environment(request):
         if result:
             return Response({
                 "message": "Content generated successfully.",
-                "result": result
+                "content": result ['content'],
+                "image_path":result.get("image_path"," ")
             }, status=status.HTTP_200_OK)
         else:
             return Response({"error": "No valid tool found for the given input."}, status=status.HTTP_400_BAD_REQUEST)
