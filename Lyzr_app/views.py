@@ -341,7 +341,7 @@ def handle_agent_tool(request, agent, option):
                 blog_agent = BlogAgent(api_key)
                 context = research_agent.research(topic, url)
                 contents = blog_agent.generate_blog(topic, url, context)
-                content = contents[0][1]
+                content = contents[0][0]
                 print("**********************************************************************************************************")
                 print(contents)
                 image_path = contents[-1][-1][0]
@@ -349,12 +349,12 @@ def handle_agent_tool(request, agent, option):
                 yt_agent = YTBlogAgent(api_key)
                 contents = yt_agent.generate_blog(yt_url)
 
-                content = contents[0][1]
+                content = contents[0][0]
                 image_path = contents[-1][-1][0]
             elif options == 'video/audio to blog':
                 va_agent = VideoAudioBlogAgent(api_key)
                 contents = va_agent.generate_blog(file_path)
-                content = contents[0][1]
+                content = contents[0][0]
                 image_path = contents[-1][-1][0]
             return {"content": content, "image_path": image_path}
 
