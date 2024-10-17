@@ -19,7 +19,7 @@ nltk
 tweepy
 beautifulsoup4
 youtube_transcript_api
-corsheaders
+
 
 vyzeai==0.1.4
 pydub
@@ -36,11 +36,11 @@ nltk
 tweepy
 beautifulsoup4
 youtube_transcript_api
-corsheaders
+
 
 vyzeai==0.1.4
 streamlit
 pandas
 openpyxl
-corsheaders
+
 
