@@ -4,7 +4,7 @@ django-cors-headers
 psycopg2-binary
 restframework
 
-vyzeai==0.0.25
+vyzeai==0.1.4
 pydub
 streamlit
 moviepy
@@ -21,7 +21,7 @@ beautifulsoup4
 youtube_transcript_api
 corsheaders
 
-vyzeai==0.0.25
+vyzeai==0.1.4
 pydub
 streamlit
 moviepy
@@ -38,7 +38,7 @@ beautifulsoup4
 youtube_transcript_api
 corsheaders
 
-vyzeai==0.0.25
+vyzeai==0.1.4
 streamlit
 pandas
 openpyxl
