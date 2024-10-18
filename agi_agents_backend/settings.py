@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'linkedin_app',          # App from second project (LinkedIn)
     'Email_Blog_app',        # Additional app from second settings
     'corsheaders',
+    'sql_app',
     'rest_framework',# Middleware for cross-origin requests
 ]
 
@@ -75,6 +76,12 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+import tempfile
+
+# In your settings.py
+TEMP_DIR = os.path.join(tempfile.gettempdir(), "your_temp_directory")
+
 
 # Media settings
 MEDIA_URL = '/media/'
