@@ -4,7 +4,7 @@ django-cors-headers
 psycopg2-binary
 djangorestframework
 
-vyzeai==0.1.4
+vyzeai==0.1.7
 pydub
 streamlit
 moviepy
@@ -21,7 +21,7 @@ beautifulsoup4
 youtube_transcript_api
 
 
-vyzeai==0.1.4
+vyzeai==0.1.7
 pydub
 streamlit
 moviepy
@@ -38,7 +38,7 @@ beautifulsoup4
 youtube_transcript_api
 
 
-vyzeai==0.1.4
+vyzeai==0.1.7
 streamlit
 pandas
 openpyxl
