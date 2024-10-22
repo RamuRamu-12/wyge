@@ -42,5 +42,6 @@ vyzeai==0.1.7
 streamlit
 pandas
 openpyxl
+sqlalchemy
 
 
