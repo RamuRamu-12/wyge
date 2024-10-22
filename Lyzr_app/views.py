@@ -487,8 +487,11 @@ def run_openai_environment(request):
 
             # Get agent response
                 result = agent(command)
-                # result = result.split('**Answer**:')[-1]
-                return JsonResponse({"result": result}, status=200)
+                result = result.split('**Answer**:')[-1]
+                # Embed the result inside curly braces
+                formatted_result = f"{{ {result} }}"
+
+                return JsonResponse({"result": formatted_result}, status=200)
 
             except Exception as e:
                 return JsonResponse({"error": str(e)}, status=500)
@@ -523,15 +526,17 @@ def run_openai_environment(request):
                 result = generate_blog_from_file(user_prompt, file, 'linkedin_post', openai_api_key)
 
 
-        # If file is provided for synthetic data generation
-        elif file and 'synthetic_data' in agent[4]:
-            result = generate_synthetic_data(openai_api_key, file, num_rows)
+        # # If file is provided for synthetic data generation
+        # elif file and 'synthetic_data' in agent[4]:
+        #     result = generate_synthetic_data(openai_api_key, file, num_rows)
 
         if result:
             image_base64 = image_to_base64(result.get('image_path'))
+            # Embed the result inside curly braces using an f-string
+            formatted_result = f"{{ {result['content']} }}"
             return Response({
                 "message": "Content generated successfully.",
-                "content": result['content'],
+                "content":formatted_result,
                 "image_base64": image_base64 or " "
             }, status=status.HTTP_200_OK)
 
