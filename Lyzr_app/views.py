@@ -483,7 +483,7 @@ def run_openai_environment(request):
         delete_images_in_directory(settings.MEDIA_ROOT)
 
         # If file is uploaded and tool type is text-to-SQL
-        if file and 'text-to-sql' in agent[4]:
+        if file and 'text_to_sql' in agent[4]:
             # Store the Excel file in the database
             table_name = file.name.split('.')[0]
             try:
