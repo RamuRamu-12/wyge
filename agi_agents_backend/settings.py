@@ -84,8 +84,7 @@ TEMP_DIR = os.path.join(tempfile.gettempdir(), "your_temp_directory")
 
 
 # Media settings
-
-MEDIA_ROOT = os.path.join(BASE_DIR, 'C:/Users/rammohan\PycharmProjects\linkedin\DIGIOTAI/agi_agents_directory_backend/agi_agents_backend')
+MEDIA_ROOT = os.path.join(BASE_DIR, '../agi_agents_backend')
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
