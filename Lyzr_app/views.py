@@ -399,6 +399,7 @@ Now it's your turn:
 - Execute one step at a time (Thought or Action or Observation or Answer).
 - Entire flow is not required for simple user queries.
 - User can *see only the Final Answer*. So provide clear Answer at the end.
+- Query only required data from database
 
 Additional Handling for Special Requests:
 - Forecasting: If the user asks for a forecast (e.g., sales forecast or trend prediction), include statistical insights in the final answer and generate a plot to visualize the forecast.
@@ -414,6 +415,7 @@ def delete_images_in_directory(directory: str) -> None:
     image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
     for filename in os.listdir(directory):
         _, ext = os.path.splitext(filename)
+        print(filename,_,ext)
         if ext.lower() in image_extensions:
             os.remove(os.path.join(directory, filename))
 
@@ -428,6 +430,18 @@ def get_images_in_directory(directory: str) -> list:
         if ext.lower() in image_extensions:
             image_files.append(os.path.join(directory, filename))
     return image_files
+
+
+import re
+def extract_num_rows_from_prompt(prompt):
+    """
+    Extracts the number of rows from the user prompt.
+    Assumes the number of rows is mentioned as "Generate X rows" or similar in the prompt.
+    """
+    match = re.search(r'(\d+)\s+rows', prompt, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 from rest_framework.response import Response
@@ -451,18 +465,6 @@ def run_openai_environment(request):
         url = request.data.get('url', '')
         yt_url = request.data.get('yt_url', '')
         file = request.FILES.get('file')  # File if attached
-        num_rows = request.data.get('num_rows', 10)  # Number of synthetic rows to generate
-        column_names = request.data.getlist('columns')
-        print(column_names)
-
-        # Ensure num_rows is an integer
-        try:
-            num_rows = int(num_rows)
-        except ValueError:
-            return Response({"error": "Invalid value for num_rows. It must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not agent_id:
-            return Response({"error": "Agent ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Retrieve agent details
         agent = db.read_agent(agent_id)
@@ -480,79 +482,15 @@ def run_openai_environment(request):
         result = None
 
         # Delete existing image plots (optional)
-        delete_images_in_directory(settings.MEDIA_ROOT)
+        delete_images_in_directory(settings.BASE_DIR)
 
         # If file is uploaded and tool type is text-to-SQL
         if file and 'text_to_sql' in agent[4]:
-            # Store the Excel file in the database
-            table_name = file.name.split('.')[0]
-            try:
-                file_path = os.path.join(settings.MEDIA_ROOT, file.name)
-                with default_storage.open(file_path, 'wb+') as f:
-                    for chunk in file.chunks():
-                        f.write(chunk)
-
-                # Convert the Excel file to a SQL table
-                excel_to_sql(file_path, table_name, "uibcedotbqcywunfl752", "LrdjP9dvLV0GP8PWRDmvREDB9IxmGu", "by80v7itmu1gw3kjmblq-postgresql.services.clever-cloud.com:50013", "by80v7itmu1gw3kjmblq")
-
-                # After storing, generate a graph or text based on the query
-                llm = ChatOpenAI(memory=True, api_key=openai_api_key)
-                query_tool = execute_query()
-                tools = [query_tool] + plot_tools
-
-                agent = Agent(llm, tools, react_prompt=reAct_prompt)
-
-            # Construct the command to pass to the agent
-                command = f"""
-                    user = 'uibcedotbqcywunfl752'
-                    password = 'LrdjP9dvLV0GP8PWRDmvREDB9IxmGu'
-                    host = 'by80v7itmu1gw3kjmblq-postgresql.services.clever-cloud.com:50013'
-                    database = 'by80v7itmu1gw3kjmblq'
-                    tables related to user are {table_name}
-                    User query: {user_prompt}
-                    """
-
-            # Get agent response
-                result = agent(command)
-                result = result.split('**Answer**:')[-1]
-
-                # Check if the prompt is related to plotting a graph
-                plot_keywords = ['plot', 'graph', 'chart', 'visualize']
-                if any(keyword in user_prompt.lower() for keyword in plot_keywords):
-                    # If the prompt asks for a graph, find the latest graph in the images directory
-                    images = get_images_in_directory(settings.MEDIA_ROOT)
-
-                    if images:
-                        latest_image = images[-1]  # Get the latest image
-                        image_path = os.path.join(settings.MEDIA_ROOT, latest_image)
-                        image_base64 = image_to_base64(image_path)
-
-                        # Return the image in base64 format
-                        return JsonResponse({
-                            "message": "Graph generated successfully.",
-                            "image_base64": image_base64
-                        }, status=200)
-                    else:
-                        return JsonResponse({"error": "No graph generated."}, status=500)
-
-                return JsonResponse({"result": result}, status=200)
-
-            except Exception as e:
-                return JsonResponse({"error": str(e)}, status=500)
-
+            result=handle_excel_file_and_generate_output(file,openai_api_key,user_prompt)
 
         # If only a prompt is provided
-        elif user_prompt and not (url or yt_url or file or column_names):
-            model_response = send_prompt_to_openai(openai_api_key, agent, user_prompt)
-            if model_response.get("success"):
-                return Response({
-                    "message": "Prompt processed successfully.",
-                    "content": model_response['content'],
-                    "total_tokens": model_response['total_tokens']
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": model_response['error']}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        elif user_prompt and not (url or yt_url or file):
+            result = send_prompt_to_openai(openai_api_key, agent, user_prompt)
 
         # If URL + prompt is provided
         elif (url or yt_url) and user_prompt:
@@ -561,106 +499,36 @@ def run_openai_environment(request):
             elif 'linkedin_post' in agent[4]:
                 result = generate_blog_from_url(user_prompt, url or yt_url, 'linkedin_post', openai_api_key)
 
-
         # If file + prompt is provided for blog or LinkedIn post
         elif file and user_prompt:
             if 'blog_post' in agent[4]:
                 result = generate_blog_from_file(user_prompt, file, 'blog_post', openai_api_key)
+
             elif 'linkedin_post' in agent[4]:
                 result = generate_blog_from_file(user_prompt, file, 'linkedin_post', openai_api_key)
 
+            elif 'Synthetic_data_new_data' in agent[4]:
+                result = handle_synthetic_data_for_new_data(file,user_prompt,openai_api_key)
+                print(result)
 
-        # If file is provided for synthetic data generation for the new data
-        # For synthetic data generation for new data
-        elif 'Synthetic_data_new_data' in agent[4]:
-            try:
-                # Generate synthetic data from the text input and column names
-                generated_df = generate_data_from_text(openai_api_key, user_prompt, column_names, num_rows=num_rows)
-                print(generated_df)
-                # Convert to CSV for download
-                combined_csv = generated_df.to_csv(index=False)
-                print(combined_csv)
+            elif 'Synthetic_data_extended_data' in agent[4]:
+                result = handle_synthetic_data_generation(file,user_prompt,openai_api_key)
+                print(result)
 
-                return JsonResponse({
-                    "message": "Synthetic data generated successfully.",
-                    "data": combined_csv
-                })
-
-            except Exception as e:
-                return Response({"error": str(e)}, status=500)
-
-        # Synthetic data generation for the extended data
-        elif file and 'Synthetic_data_extended_data' in agent[4]:
-            try:
-                # Read the uploaded Excel file into a DataFrame
-                original_df = pd.read_excel(file)
-
-                # Check if the DataFrame has more than 300 rows
-                if len(original_df) > 300:
-                    original_df = original_df.head(300)  # Take the first 300 rows
-
-                # Create a temporary file for the Excel data
-                with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
-                    # Save the truncated or original file to a temporary location
-                    temp_file_name = temp_file.name
-                    original_df.to_excel(temp_file_name, index=False)
-
-                # Generate synthetic data using the file path
-                generated_df = generate_synthetic_data(openai_api_key, temp_file_name, num_rows=num_rows)
-
-                # Combine the original and synthetic data
-                combined_df = pd.concat([original_df, generated_df], ignore_index=True)
-
-                # Convert to CSV for download
-                combined_csv = combined_df.to_csv(index=False)
-
-                return JsonResponse({
-                    "message": "Synthetic data generated successfully.",
-                    "data": combined_csv
-                })
-
-            except Exception as e:
-                return Response({"error": str(e)}, status=500)
-
-        # Synthetic data generation for missing data
-        elif file and 'Synthetic_data_missing_data' in agent[4]:
-            try:
-                # Read the uploaded Excel file into a DataFrame
-                original_df = pd.read_excel(file)
-
-                # Check if the DataFrame has more than 300 rows
-                if len(original_df) > 300:
-                    original_df = original_df.head(300)  # Take the first 300 rows
-
-                # Create a temporary file for the Excel data
-                with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
-                    # Save the truncated or original file to a temporary location
-                    temp_file_name = temp_file.name
-                    original_df.to_excel(temp_file_name, index=False)
-
-                # Fill missing data using the file path
-                filled_df = fill_missing_data_in_chunk(openai_api_key, temp_file_name)
-                print(filled_df)
-
-                # Convert to CSV for download
-                combined_csv = filled_df.to_csv(index=False)
-
-                return JsonResponse({
-                    "message": "Synthetic data generated successfully.",
-                    "data": combined_csv
-                })
-
-            except Exception as e:
-                return Response({"error": str(e)}, status=500)
-
+            elif 'Synthetic_data_missing_data' in agent[4]:
+                result = handle_fill_missing_data(file,openai_api_key)
+                print(result)
 
         if result:
-            image_base64 = image_to_base64(result.get('image_path'))
-            return Response({
-                "message": "Content generated successfully.",
-                "content": result['content'],
-                "image_base64": image_base64 or " "
-            }, status=status.HTTP_200_OK)
+            response_data = {
+                "content": result
+            }
+            # Check if an image path exists in the result
+            if 'image_path' in result and result['image_path']:
+                image_base64 = image_to_base64(result['image_path'])
+                response_data["image_base64"] = image_base64 or " "
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         else:
             return Response({"error": "No valid tool found for the given input."}, status=status.HTTP_400_BAD_REQUEST)
@@ -743,6 +611,193 @@ def generate_blog_from_file(prompt, file, option, api_key):
     except Exception as e:
         return {"error": str(e)}
 
+
+def handle_synthetic_data_for_new_data(uploaded_file, user_prompt, openai_api_key):
+    """
+    Function to handle synthetic data generation.
+
+    Parameters:
+    - uploaded_file: The empty Excel file containing column names
+    - user_prompt: The user's prompt, which should contain the number of rows
+    - openai_api_key: The OpenAI API key to be used for generating synthetic data
+
+    Returns:
+    - A CSV string with generated synthetic data or an error message
+    """
+    try:
+        # Read the Excel file and extract column names
+        df = pd.read_excel(uploaded_file)
+        column_names = df.columns.tolist()
+
+        # Check if the necessary information is provided
+        if not user_prompt or not column_names:
+            return {"error": "Missing user prompt or column names"}
+
+        # Extract number of rows from the prompt
+        num_rows = extract_num_rows_from_prompt(user_prompt)
+        if num_rows is None:
+            return {"error": "Number of rows not found in the prompt"}
+
+        # Generate synthetic data using the column names and the number of rows
+        generated_df = generate_data_from_text(openai_api_key, user_prompt, column_names, num_rows=num_rows)
+
+        # Convert the generated DataFrame to CSV
+        combined_csv = generated_df.to_csv(index=False)
+
+        return {
+            "message": "Synthetic data generated successfully.",
+            "data": combined_csv
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_synthetic_data_generation(file, user_prompt, openai_api_key):
+    """
+    Function to handle synthetic data generation and merging with original data.
+
+    Parameters:
+    - file: The uploaded Excel file containing original data
+    - user_prompt: The user's prompt, which should contain the number of rows
+    - openai_api_key: The OpenAI API key to be used for generating synthetic data
+
+    Returns:
+    - A dictionary with message and combined CSV data, or an error message
+    """
+    try:
+        # Read the uploaded Excel file into a DataFrame
+        original_df = pd.read_excel(file)
+
+        # Check if the DataFrame has more than 300 rows
+        if len(original_df) > 300:
+            original_df = original_df.head(300)  # Take the first 300 rows
+
+        # Create a temporary file for the Excel data
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
+            temp_file_name = temp_file.name
+            # Save the truncated or original file to a temporary location
+            original_df.to_excel(temp_file_name, index=False)
+
+        # Extract the number of rows from the prompt
+        num_rows = extract_num_rows_from_prompt(user_prompt)
+        if num_rows is None:
+            return {"error": "Number of rows not found in the prompt"}
+
+        # Generate synthetic data using the temporary file path
+        generated_df = generate_synthetic_data(openai_api_key, temp_file_name, num_rows)
+
+        # Combine the original and synthetic data
+        combined_df = pd.concat([original_df, generated_df], ignore_index=True)
+
+        # Convert to CSV for download
+        combined_csv = combined_df.to_csv(index=False)
+
+        return {
+            "message": "Synthetic data generated successfully.",
+            "data": combined_csv
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_fill_missing_data(file, openai_api_key):
+    """
+    Function to handle filling missing data in chunks and returning as CSV.
+
+    Parameters:
+    - file: The uploaded Excel file containing original data
+    - openai_api_key: The OpenAI API key to be used for generating missing data
+
+    Returns:
+    - A dictionary with a message and combined CSV data, or an error message
+    """
+    try:
+        # Read the uploaded Excel file into a DataFrame
+        original_df = pd.read_excel(file)
+
+        # Check if the DataFrame has more than 300 rows
+        if len(original_df) > 300:
+            original_df = original_df.head(300)  # Limit to the first 300 rows
+
+        # Create a temporary file for the Excel data
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
+            temp_file_name = temp_file.name
+            # Save the truncated or original file to a temporary location
+            original_df.to_excel(temp_file_name, index=False)
+
+        # Fill missing data using the file path
+        filled_df = fill_missing_data_in_chunk(openai_api_key, temp_file_name)
+        print(filled_df)
+
+        # Convert the filled DataFrame to CSV format
+        combined_csv = filled_df.to_csv(index=False)
+
+        return {
+            "message": "Synthetic data generated successfully.",
+            "data": combined_csv
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_excel_file_and_generate_output(file, openai_api_key, user_prompt):
+    """
+    Function to store an Excel file in the database, convert it to a SQL table,
+    and generate a graph or text based on the user query using an agent.
+
+    Parameters:
+    - file: The uploaded Excel file to be stored and processed
+    - openai_api_key: The OpenAI API key for the ChatOpenAI model
+    - user_prompt: The query provided by the user
+
+    Returns:
+    - A dictionary containing the agent's response and image path, or an error message
+    """
+    table_name = file.name.split('.')[0]
+
+    try:
+        # Store the Excel file in the database
+        file_path = os.path.join(settings.MEDIA_ROOT, file.name)
+        with default_storage.open(file_path, 'wb+') as f:
+            for chunk in file.chunks():
+                f.write(chunk)
+
+        # Convert the Excel file to a SQL table
+        excel_to_sql(file_path, table_name, "uibcedotbqcywunfl752", "LrdjP9dvLV0GP8PWRDmvREDB9IxmGu",
+                     "by80v7itmu1gw3kjmblq-postgresql.services.clever-cloud.com:50013", "by80v7itmu1gw3kjmblq")
+
+        # Initialize LLM and tools for query and graph generation
+        llm = ChatOpenAI(memory=True, api_key=openai_api_key)
+        query_tool = execute_query()
+        tools = [query_tool] + plot_tools
+
+        agent = Agent(llm, tools, react_prompt=reAct_prompt)
+
+        # Construct the command to pass to the agent
+        command = f"""
+            user = 'uibcedotbqcywunfl752'
+            password = 'LrdjP9dvLV0GP8PWRDmvREDB9IxmGu'
+            host = 'by80v7itmu1gw3kjmblq-postgresql.services.clever-cloud.com:50013'
+            database = 'by80v7itmu1gw3kjmblq'
+            tables related to user are {table_name}
+            User query: {user_prompt}
+        """
+
+        # Get agent response
+        response = agent(command)
+        response = response.split('**Answer**:')[-1]
+
+        # Fetch images from the directory
+        images = get_images_in_directory(settings.BASE_DIR)
+        print(images)
+
+        return {"content": response, "image_path": images[0]}
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # Helper function to save uploaded file
