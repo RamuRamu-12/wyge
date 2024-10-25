@@ -457,6 +457,7 @@ from vyzeai.tools.raw_functions import excel_to_sql
 from .plots import  tools as plot_tools
 from .generator import generate_synthetic_data, generate_data_from_text, fill_missing_data_in_chunk
 
+
 @api_view(['POST'])
 def run_openai_environment(request):
     try:
@@ -468,14 +469,9 @@ def run_openai_environment(request):
 
         # Retrieve agent details
         agent = db.read_agent(agent_id)
-        if not agent:
-            return Response({"error": "Agent not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Retrieve the API key from the environment table using env_id
         env_details = db.read_environment(agent[6])  # agent[6] is env_id
-        if not env_details or not env_details[2]:
-            return Response({"error": "API key not found in environment table"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         openai_api_key = env_details[2]
 
         # Process based on input type (prompt, URL, file)
@@ -484,41 +480,36 @@ def run_openai_environment(request):
         # Delete existing image plots (optional)
         delete_images_in_directory(settings.BASE_DIR)
 
-        # If file is uploaded and tool type is text-to-SQL
+        # Tool handling conditions
         if file and 'text_to_sql' in agent[4]:
-            result=handle_excel_file_and_generate_output(file,openai_api_key,user_prompt)
+            result = handle_excel_file_and_generate_output(file, openai_api_key, user_prompt)
 
-        # If only a prompt is provided
         elif user_prompt and not (url or yt_url or file):
             result = send_prompt_to_openai(openai_api_key, agent, user_prompt)
 
-        # If URL + prompt is provided
         elif (url or yt_url) and user_prompt:
             if 'blog_post' in agent[4]:
                 result = generate_blog_from_url(user_prompt, url or yt_url, 'blog_post', openai_api_key)
             elif 'linkedin_post' in agent[4]:
                 result = generate_blog_from_url(user_prompt, url or yt_url, 'linkedin_post', openai_api_key)
 
-        # If file + prompt is provided for blog or LinkedIn post
         elif file and user_prompt:
             if 'blog_post' in agent[4]:
                 result = generate_blog_from_file(user_prompt, file, 'blog_post', openai_api_key)
-
             elif 'linkedin_post' in agent[4]:
                 result = generate_blog_from_file(user_prompt, file, 'linkedin_post', openai_api_key)
 
-            elif 'Synthetic_data_new_data' in agent[4]:
-                result = handle_synthetic_data_for_new_data(file,user_prompt,openai_api_key)
-                print(result)
+        # Synthetic data handling cases
+        if file and 'Synthetic_data_new_data' in agent[4]:
+            result = handle_synthetic_data_for_new_data(file, user_prompt, openai_api_key)
 
-            elif 'Synthetic_data_extended_data' in agent[4]:
-                result = handle_synthetic_data_generation(file,user_prompt,openai_api_key)
-                print(result)
+        elif file and 'Synthetic_data_extended_data' in agent[4]:
+            result = handle_synthetic_data_generation(file, user_prompt, openai_api_key)
 
-            elif 'Synthetic_data_missing_data' in agent[4]:
-                result = handle_fill_missing_data(file,openai_api_key)
-                print(result)
+        elif file and 'Synthetic_data_missing_data' in agent[4]:
+            result = handle_fill_missing_data(file, openai_api_key)
 
+        # Construct response
         if result:
             response_data = {
                 "content": result
