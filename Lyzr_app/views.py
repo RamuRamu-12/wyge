@@ -525,15 +525,15 @@ def run_openai_environment(request):
                     response_data["image_base64"] = image_to_base64(result["image_path"])
 
         # Synthetic data handling cases
-        if file and 'Synthetic_data_new_data' in agent[4]:
+        if file and 'synthetic_data_new_data' in agent[4]:
             result = handle_synthetic_data_for_new_data(file, user_prompt, openai_api_key)
             response_data["csv_file"] = result  # Assume result contains CSV file path
 
-        elif file and 'Synthetic_data_extended_data' in agent[4]:
+        elif file and 'synthetic_data_extended_data' in agent[4]:
             result = handle_synthetic_data_generation(file, user_prompt, openai_api_key)
             response_data["csv_file"] = result
 
-        elif file and 'Synthetic_data_missing_data' in agent[4]:
+        elif file and 'synthetic_data_missing_data' in agent[4]:
             result = handle_fill_missing_data(file, openai_api_key)
             response_data["csv_file"] = result
 
