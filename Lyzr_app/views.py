@@ -515,6 +515,7 @@ def run_openai_environment(request):
                         <html>
                             <body>
                                 <div class="p-6 bg-blue-50 rounded-lg text-center shadow-lg">
+                                    <h2 class="text-2xl font-semibold text-green-600">🎉 Generated Content 🎉</h2>
                                     <p class="text-lg text-gray-700 mt-2">{content_html}</p>
                                     <div>{image_html}</div>
                                 </div>
@@ -550,6 +551,7 @@ def run_openai_environment(request):
                         <html>
                             <body>
                                 <div class="p-6 bg-blue-50 rounded-lg text-center shadow-lg">
+                                    <h2 class="text-2xl font-semibold text-green-600">🎉 Generated Content 🎉</h2>
                                     <p class="text-lg text-gray-700 mt-2">{content_html}</p>
                                     <div>{image_html}</div>
                                 </div>
@@ -576,6 +578,7 @@ def run_openai_environment(request):
                         <html>
                             <body>
                                 <div class="p-6 bg-blue-50 rounded-lg text-center shadow-lg">
+                                    <h2 class="text-2xl font-semibold text-green-600">🎉 Generated Content 🎉</h2>
                                     <p class="text-lg text-gray-700 mt-2">{content_html}</p>
                                     <div>{image_html}</div>
                                 </div>
@@ -688,6 +691,9 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
             return {"content": content, "image_path": image_path}
     except Exception as e:
         return {"error": str(e)}
+
+
+
 
 
 # Generate content from file (for blog or LinkedIn post)
@@ -913,4 +919,5 @@ def save_file(file):
     with open(file_path, "wb") as f:
         f.write(file.read())
     return file_path
+
 
