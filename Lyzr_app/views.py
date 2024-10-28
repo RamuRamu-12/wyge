@@ -515,7 +515,6 @@ def run_openai_environment(request):
                         <html>
                             <body>
                                 <div class="p-6 bg-blue-50 rounded-lg text-center shadow-lg">
-                                    <h2 class="text-2xl font-semibold text-green-600">🎉 Generated Content 🎉</h2>
                                     <p class="text-lg text-gray-700 mt-2">{content_html}</p>
                                     <div>{image_html}</div>
                                 </div>
@@ -551,7 +550,6 @@ def run_openai_environment(request):
                         <html>
                             <body>
                                 <div class="p-6 bg-blue-50 rounded-lg text-center shadow-lg">
-                                    <h2 class="text-2xl font-semibold text-green-600">🎉 Generated Content 🎉</h2>
                                     <p class="text-lg text-gray-700 mt-2">{content_html}</p>
                                     <div>{image_html}</div>
                                 </div>
@@ -578,7 +576,6 @@ def run_openai_environment(request):
                         <html>
                             <body>
                                 <div class="p-6 bg-blue-50 rounded-lg text-center shadow-lg">
-                                    <h2 class="text-2xl font-semibold text-green-600">🎉 Generated Content 🎉</h2>
                                     <p class="text-lg text-gray-700 mt-2">{content_html}</p>
                                     <div>{image_html}</div>
                                 </div>
