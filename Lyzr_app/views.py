@@ -15,7 +15,7 @@ from vyzeai.tools.prebuilt_tools import execute_query
 
 from .database import PostgreSQLDB
 
-db = PostgreSQLDB(dbname='uibmogli', user='uibmogli', password='8ogImHfL_1G249lXtM3k2EAIWTRDH2mX')
+db = PostgreSQLDB(dbname='test', user='test_owner', password='tcWI7unQ6REA')
 
 
 # Create environment
