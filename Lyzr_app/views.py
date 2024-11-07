@@ -769,6 +769,10 @@ def handle_fill_missing_data(file, openai_api_key):
         return {"error": str(e)}
 
 
+
+
+
+
 #Text to sql function
 import os
 from django.core.files.storage import default_storage
@@ -782,10 +786,10 @@ from .system_prompt2 import plot_prompt
 from .system_prompt3 import forecasting_prompt
 
 # Shared database credentials
-USER = 'uibmogli'
-PASSWORD = '8ogImHfL_1G249lXtM3k2EAIWTRDH2mX'
-HOST = 'cornelius.db.elephantsql.com:5432'
-DATABASE = 'uibmogli'
+USER = 'test_owner'
+PASSWORD = 'tcWI7unQ6REA'
+HOST = 'ep-yellow-recipe-a5fny139.us-east-2.aws.neon.tech:5432'
+DATABASE = 'test'
 
 def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, operation_type):
     """
@@ -826,7 +830,9 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
 
     # Select tools and prompt based on operation type
     if operation_type == 'text_to_sql':
+        print("Going in to the database............")
         tools = [execute_query()]
+        print("Fetching from the database.........")
         prompt = reAct_prompt
     elif operation_type == 'graph_to_sql':
         tools = [execute_query(), execute_code(), install_library()]
@@ -860,6 +866,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
     print("Preparing command for the agent:")
     print(tools)
     command = f"""
+        Answer the user query from the database below,also use the provided tools.
         user = '{USER}'
         password = '{PASSWORD}'
         host = '{HOST}'
@@ -878,7 +885,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
         print("----------------------------------------------------------")
         print(datetime.now())
         print("Raw agent response:", response)
-        response = response.split('Answer:')[-1]
+        response = response.split('**Answer**:')[-1]
     except Exception as e:
         print("Error executing agent command:", str(e))
         return JsonResponse({"error": "Failed to execute command."}, status=500)
@@ -927,6 +934,7 @@ def remove_non_serializable(data_list):
     return [item for item in filtered_result if
             item and (isinstance(item, dict) and item) or (isinstance(item, list) and item)]
         # Helper function to save uploaded file
+
 
 
 def save_file(file):
