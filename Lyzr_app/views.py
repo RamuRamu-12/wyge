@@ -540,7 +540,7 @@ def run_openai_environment(request):
 
 
 # Generate content from URL (for blog or LinkedIn post)
-def generate_blog_from_url(prompt, url, option, api_key,to_mail):
+def generate_blog_from_url(prompt, url, option, api_key):
     try:
         if option == 'blog_post':
             print(datetime.now())
