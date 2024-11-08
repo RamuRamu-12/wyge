@@ -111,7 +111,7 @@ EMAIL_HOST_PASSWORD = 'btflusfrzljsaxob'
 
 # Default from email address
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-ADMIN_EMAIL = 'gurakaparameshwerreddy@gmail.com'
+ADMIN_EMAIL = 'sainathreddyguraka@gmail.com'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
