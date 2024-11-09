@@ -449,7 +449,7 @@ def run_openai_environment(request):
         agent_id = request.data.get('agent_id')
         user_prompt = request.data.get('prompt', '')
         url = request.data.get('url', '')
-        file = request.FILES.getlist('file') # File if attached
+        file = request.FILES.get('file') # File if attached
 
 
 
@@ -540,7 +540,9 @@ def run_openai_environment(request):
         # Blog Generation through files
         elif file and user_prompt:
             if any(tool_id in agent[4] for tool_id in BLOG_TOOL_IDS):
+                print("function calling here")
                 result = generate_blog_from_file(user_prompt, file, 'blog_post', openai_api_key)
+                print(result)
             elif 'linkedin_post' in agent[4]:
                 result = generate_blog_from_file(user_prompt, file, 'linkedin_post', openai_api_key)
 
@@ -635,12 +637,14 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
 # Generate content from file (for blog or LinkedIn post)
 def generate_blog_from_file(prompt, file, option, api_key):
     try:
+        print("*******")
         file_path = save_file(file)
-
+        print(file_path)
         if option == 'blog_post':
+            print("started")
             va_agent = VideoAudioBlogAgent(api_key)
+            print("getting started")
             blog, doc_file, image = va_agent.generate_blog(file_path)
-
             return {"content": blog, "image_path": image}
         elif option == 'linkedin_post':
             linkedin_agent = LinkedInAgent(api_key)
@@ -1101,3 +1105,4 @@ def save_file(file):
     with open(file_path, "wb") as f:
         f.write(file.read())
     return file_path
+
