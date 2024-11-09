@@ -170,7 +170,7 @@ class PostgreSQLDB:
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                CREATE TABLE IF NOT EXISTS agents (
+                CREATE TABLE IF NOT EXISTS ai_agents (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(100) NOT NULL,
                     system_prompt TEXT,
@@ -194,7 +194,7 @@ class PostgreSQLDB:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
-                query = "DROP TABLE IF EXISTS agents;"
+                query = "DROP TABLE IF EXISTS ai_agents;"
                 cursor.execute(query)
                 conn.commit()
                 cursor.close()
@@ -212,7 +212,7 @@ class PostgreSQLDB:
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                INSERT INTO agents (name, system_prompt, agent_description, tools, upload_attachment, env_id)
+                INSERT INTO ai_agents (name, system_prompt, agent_description, tools, upload_attachment, env_id)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id;
                 """
@@ -232,7 +232,7 @@ class PostgreSQLDB:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
-                query = "SELECT * FROM agents WHERE id = %s;"
+                query = "SELECT * FROM ai_agents WHERE id = %s;"
                 cursor.execute(query, (agent_id,))
                 agent = cursor.fetchone()
                 cursor.close()
@@ -250,7 +250,7 @@ class PostgreSQLDB:
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                UPDATE agents
+                UPDATE ai_agents
                 SET name = COALESCE(%s, name),
                     system_prompt = COALESCE(%s, system_prompt),
                     agent_description = COALESCE(%s, agent_description),
@@ -274,7 +274,7 @@ class PostgreSQLDB:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
-                query = "DELETE FROM agents WHERE id = %s;"
+                query = "DELETE FROM ai_agents WHERE id = %s;"
                 cursor.execute(query, (agent_id,))
                 conn.commit()
                 cursor.close()
@@ -291,7 +291,7 @@ class PostgreSQLDB:
                 cursor = conn.cursor()
                 query = """
                 SELECT id, name, system_prompt, agent_description, tools, upload_attachment, env_id 
-                FROM agents;
+                FROM ai_agents;
                 """
                 cursor.execute(query)
                 agents = cursor.fetchall()
