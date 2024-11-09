@@ -450,6 +450,7 @@ def run_openai_environment(request):
         user_prompt = request.data.get('prompt', '')
         url = request.data.get('url', '')
         file = request.FILES.get('file') # File if attached
+        files= request.FILES.getlist('files')
 
 
 
@@ -565,9 +566,9 @@ def run_openai_environment(request):
             response_data["csv_file"] = result
 
         #Chat2pdf function:
-        elif file and 'chat_to_pdf' in agent[4]:
+        elif files and 'chat_to_pdf' in agent[4]:
             chunk_size= 1500
-            result= chat_with_documents(openai_api_key,file,chunk_size,user_prompt)
+            result= chat_with_documents(openai_api_key,files,chunk_size,user_prompt)
             response_data["response"]=result.get("response")
 
 
@@ -616,6 +617,7 @@ def generate_blog_from_url(prompt, url, option, api_key):
 def generate_blog_from_yt_url(prompt, url, option, api_key):
     try:
         if option == 'blog_post':
+
             yt_agent = YTBlogAgent(api_key)
             print(url, datetime.now())
 
