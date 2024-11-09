@@ -19,6 +19,8 @@ tweepy
 beautifulsoup4
 youtube_transcript_api
 pymysql
+SpeechRecognition
+
 
 vyzeai==0.1.15
 pydub
