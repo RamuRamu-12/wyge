@@ -450,7 +450,7 @@ def run_openai_environment(request):
         user_prompt = request.data.get('prompt', '')
         url = request.data.get('url', '')
         file = request.FILES.get('file') # File if attached
-        files= request.FILES.getlist('files')
+        files= request.FILES.getlist('file')
 
 
 
@@ -503,7 +503,7 @@ def run_openai_environment(request):
                 response_data["error"] = result["error"]
             else:
                 # Add the text response to the response_data
-                response_data["response"] = result
+                response_data["content"] = result["response"]
 
                 # Check if audio_response is True, and include audio in the response_data
                 # if audio_response:
@@ -569,7 +569,7 @@ def run_openai_environment(request):
         elif files and 'chat_to_pdf' in agent[4]:
             chunk_size= 1500
             result= chat_with_documents(openai_api_key,files,chunk_size,user_prompt)
-            response_data["response"]=result
+            response_data["response"]=result["response"]
 
 
 
@@ -1003,7 +1003,7 @@ def chat_with_openai(api_key, user_prompt, temperature, audio_response):
             return {"error": f"Text-to-speech error: {str(e)}"}
 
     # Return only the text response if audio is not requested
-    return response_text
+    return {"response":response_text}
 
 
 import speech_recognition as sr
@@ -1093,7 +1093,7 @@ def chat_with_documents(api_key,files,chunk_size,user_prompt):
 
     # Get the response from the language model
     response = llm.run(prompt)
-    return  response
+    return  {"response":response}
 
 
 
