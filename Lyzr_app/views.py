@@ -569,7 +569,7 @@ def run_openai_environment(request):
         elif files and 'chat_to_pdf' in agent[4]:
             chunk_size= 1500
             result= chat_with_documents(openai_api_key,files,chunk_size,user_prompt)
-            response_data["response"]=result["response"]
+            response_data["content"]=result["response"]
 
 
 
