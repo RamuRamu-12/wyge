@@ -17,10 +17,9 @@ google-auth-httplib2
 nltk
 tweepy
 beautifulsoup4
-youtube_transcript_api
-pymysql
-SpeechRecognition
+youtube-transcript-api
 
+pymysql
 
 vyzeai==0.1.15
 pydub
@@ -36,7 +35,7 @@ google-auth-httplib2
 nltk
 tweepy
 beautifulsoup4
-youtube_transcript_api
+youtube-transcript-api
 
 
 vyzeai==0.1.15
