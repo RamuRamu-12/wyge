@@ -437,7 +437,7 @@ def send_email(request):
             return JsonResponse({"error": "Recipient email (to_mail) is required"}, status=400)
 
         # Path to the pre-generated docx file
-        doc_file_path = './blog_post.docx'
+        doc_file_path = 'blog_post.docx'
         print(doc_file_path)
         try:
             # Open the file in binary mode
