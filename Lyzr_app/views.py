@@ -438,19 +438,26 @@ def send_email(request):
 
         # Path to the pre-generated docx file
         doc_file_path = 'blog_post.docx'
-        print(doc_file_path)
+
         try:
-            # Open the file in binary mode
-            with open(doc_file_path, 'rb') as doc_file:
-                # Step 1: Send the email with the doc file attached
-                email_agent = EmailAgent(api_key)
-                ack = email_agent.send_email(
-                    to_mail,
-                    'Your Blog Post',
-                    'Thank you for using our product. Here is your requested blog post.',
-                    doc_file,  # Attach the blog_post.docx file
-                    token_json_file_path='./token.json'
-                )
+            # Read the contents of the original file and store it in a temporary file
+            with open(doc_file_path, 'rb') as original_doc_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_doc_file:
+                    temp_doc_file.write(original_doc_file.read())
+                    temp_doc_file_path = temp_doc_file.name
+
+            # Step 1: Send the email with the temporary doc file attached
+            email_agent = EmailAgent(api_key)
+            ack = email_agent.send_email(
+                to_mail,
+                'Your Blog Post',
+                'Thank you for using our product. Here is your requested blog post.',
+                temp_doc_file_path,  # Attach the temporary docx file
+                token_json_file_path='./token.json'
+            )
+
+            # Delete the temporary file after sending the email
+            os.remove(temp_doc_file_path)
 
             return JsonResponse({"ack": ack})
 
@@ -458,7 +465,6 @@ def send_email(request):
             return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse({"message": "Use POST method"}, status=405)
-
 
 
 
