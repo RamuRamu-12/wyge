@@ -431,47 +431,44 @@ load_dotenv()
 
 @csrf_exempt
 def send_email(request):
-    """
-    API for sending the pre-generated blog_post.docx file via email.
-    """
     if request.method == 'POST':
-        api_key = os.getenv("OPENAI_API_KEY")
-        print("API Key:", api_key)  # Check if API key is loaded correctly
-
-        to_mail = request.POST.get('to_mail')
-        if not to_mail:
-            return JsonResponse({"error": "Recipient email (to_mail) is required"}, status=400)
-
-        # Path to the pre-generated docx file
-        doc_file_path = './blog_post.docx'
-
         try:
-            # Read the contents of the original file and store it in a temporary file
-            with open(doc_file_path, 'rb') as original_doc_file:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_doc_file:
-                    temp_doc_file.write(original_doc_file.read())
-                    temp_doc_file_path = temp_doc_file.name
+            # Retrieve data from the POST request
+            to_mail = request.POST.get('to_mail')
+            if not to_mail:
+                return JsonResponse({"error": "Recipient email (to_mail) is required"}, status=400)
 
-            # Step 1: Send the email with the temporary doc file attached
+            # Paths to attachments
+            doc_file_path = "./blog_post.docx"
+            image_path = "./blog_image.png"
+
+            # Validate attachments
+            if not os.path.exists(doc_file_path):
+                return JsonResponse({"error": "Blog content file not found"}, status=400)
+            if not os.path.exists(image_path):
+                return JsonResponse({"error": "Blog image file not found"}, status=400)
+
+            # Send email with attachments
+            api_key = os.getenv("OPENAI_API_KEY")
             email_agent = EmailAgent(api_key)
-            ack = email_agent.send_email(
+            email_ack = email_agent.send_email(
                 to_mail,
-                'Your Blog Post',
-                'Thank you for using our product. Here is your requested blog post.',
-                temp_doc_file_path,  # Attach the temporary docx file
-                token_json_file_path='./token.json'
+                subject="Your Blog Post and Image",
+                body="Here is your generated blog content and the accompanying image.",
+                attachments=[doc_file_path, image_path],
+                token_json_file_path="./token.json"
             )
 
-            # Delete the temporary file after sending the email
-            os.remove(temp_doc_file_path)
+            # Clean up local files after sending email
+            os.remove(doc_file_path)
+            os.remove(image_path)
 
-            return JsonResponse({"ack": ack})
+            return JsonResponse({"ack": email_ack}, status=200)
 
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"message": "Use POST method"}, status=405)
-
+    return JsonResponse({"error": "Invalid request method"}, status=405)
 
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -665,6 +662,16 @@ def run_openai_environment(request):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+from docx import Document
+def save_blog_to_docx(blog_content, file_path):
+    """Helper function to save blog content to a .docx file."""
+    doc = Document()
+    doc.add_heading("Blog Post", 0)
+    doc.add_paragraph(blog_content)
+    doc.save(file_path)
+    return file_path
+
+
 # Generate content from URL (for blog or LinkedIn post)
 def generate_blog_from_url(prompt, url, option, api_key):
     try:
@@ -675,7 +682,22 @@ def generate_blog_from_url(prompt, url, option, api_key):
             context = research_agent.research(prompt, url)
             print(datetime.now())
             blog, doc_file, image = blog_agent.generate_blog(prompt, url, context)
-            return {"content": blog, "image_path": image}
+            # Save blog content to a .docx file
+            doc_file_path = "./blog_post.docx"
+            save_blog_to_docx(blog, doc_file_path)
+
+            # Save the image locally (image_path already returned by the blog agent)
+            local_image_path = "./blog_image.png"
+            if image:  # Assuming image_path is a URL or generated file path
+                os.rename(image, local_image_path)
+
+            return {
+                "content": blog,
+                "doc_file": doc_file_path,
+                "image_path": local_image_path
+            }
+
+            #return {"content": blog, "image_path": image}
         elif option == 'linkedin_post':
             linkedin_agent = LinkedInAgent(api_key)
             research_agent = ResearchAgent(api_key)
