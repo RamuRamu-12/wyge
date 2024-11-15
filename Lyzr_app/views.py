@@ -352,7 +352,6 @@ def create_openai_environment(agent_details, openai_api_key):
         return {"success": False, "error": str(e)}
 
 
-
 def image_to_base64(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -384,6 +383,8 @@ def get_images_in_directory(directory: str) -> list:
 
 
 import re
+
+
 def extract_num_rows_from_prompt(prompt):
     """
     Extracts the number of rows from the user prompt.
@@ -415,6 +416,8 @@ def differentiate_url(url):
 
 
 import markdown
+
+
 def markdown_to_html(md_text):
     html_text = markdown.markdown(md_text)
     return html_text
@@ -422,7 +425,10 @@ def markdown_to_html(md_text):
 
 from dotenv import load_dotenv
 import openai
+
 load_dotenv()
+
+
 @csrf_exempt
 def send_email(request):
     """
@@ -467,7 +473,6 @@ def send_email(request):
     return JsonResponse({"message": "Use POST method"}, status=405)
 
 
-
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
@@ -492,11 +497,8 @@ def run_openai_environment(request):
         agent_id = request.data.get('agent_id')
         user_prompt = request.data.get('prompt', '')
         url = request.data.get('url', '')
-        file = request.FILES.get('file') # File if attached
-        files= request.FILES.getlist('file')
-
-
-
+        file = request.FILES.get('file')  # File if attached
+        files = request.FILES.getlist('file')
 
         # Retrieve agent details
         agent = db.read_agent(agent_id)
@@ -583,16 +585,16 @@ def run_openai_environment(request):
                     response_data["image_base64"] = image_to_base64(result["image_path"])
                 # if "doc_file" in result and result["doc_file"]:
                 #     response_data["doc_file"] = result["doc_file"]
-                    # to_email=request.data.get("email")
-                    # email_agent = EmailAgent(openai_api_key)
-                    # ack = email_agent.send_email(
-                    #     to_email,
-                    #     'Your content',
-                    #     'Thank you for using our product.',
-                    #     result["doc_file"],
-                    #     token_json_file_path="./token.json"
-                    # )
-                    # print(ack)
+                # to_email=request.data.get("email")
+                # email_agent = EmailAgent(openai_api_key)
+                # ack = email_agent.send_email(
+                #     to_email,
+                #     'Your content',
+                #     'Thank you for using our product.',
+                #     result["doc_file"],
+                #     token_json_file_path="./token.json"
+                # )
+                # print(ack)
 
 
         # Blog Generation through files
@@ -610,16 +612,16 @@ def run_openai_environment(request):
                     response_data["image_base64"] = image_to_base64(result["image_path"])
                 # if "doc_file" in result and result["doc_file"]:
                 #      response_data["doc_file"] =result["doc_file"]
-                    # to_email=request.data.get("email")
-                    # email_agent = EmailAgent(openai_api_key)
-                    # ack = email_agent.send_email(
-                    #     to_email,
-                    #     'Your content',
-                    #     'Thank you for using our product.',
-                    #     result["doc_file"],
-                    #     token_json_file_path="./token.json"
-                    # )
-                    # print(ack)
+                # to_email=request.data.get("email")
+                # email_agent = EmailAgent(openai_api_key)
+                # ack = email_agent.send_email(
+                #     to_email,
+                #     'Your content',
+                #     'Thank you for using our product.',
+                #     result["doc_file"],
+                #     token_json_file_path="./token.json"
+                # )
+                # print(ack)
 
         # Synthetic data handling cases(3 cases)
         if file and 'synthetic_data_new_data' in agent[4]:
@@ -634,13 +636,24 @@ def run_openai_environment(request):
             result = handle_fill_missing_data(file, openai_api_key)
             response_data["csv_file"] = result
 
-        #Chat2pdf function:
+        # Chat2pdf function:
         elif files and 'chat_to_pdf' in agent[4]:
-            chunk_size= 1500
-            result= chat_with_documents(openai_api_key,files,chunk_size,user_prompt)
-            response_data["content"]=result["response"]
+            chunk_size = 1500
+            result = chat_with_documents(openai_api_key, files, chunk_size, user_prompt)
+            response_data["content"] = result["response"]
 
+        #Travel planner
+        elif user_prompt and 'travel_planner' in agent[4]:
+            weather_api_key = "b307b797aa0caf2cf2c904ae302f7461"
+            geolocation_api_key = "2935b537cd024c83a84b7983d7da1ddb"
+            result=travel_planning(weather_api_key,geolocation_api_key,openai_api_key,user_prompt)
+            response_data["content"] = markdown_to_html(result.get("response", ""))
 
+        #MCQ Generation
+        elif user_prompt and 'mcq_generator' in agent[4]:
+            result=mcq_generator(openai_api_key,user_prompt)
+            # response_data["content"] = result["response"]
+            response_data["content"] = markdown_to_html(result.get("response", ""))
 
         # Construct response
         if response_data:
@@ -908,7 +921,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
     - Dictionary with content and optionally an image path
     """
     table_name = file.name.split('.')[0]
-    #text-to-sql session starts here
+    # text-to-sql session starts here
     print(datetime.now())
     if 'processed_tables' not in request.session:
         request.session['processed_tables'] = []
@@ -1066,10 +1079,12 @@ def chat_with_openai(api_key, user_prompt, temperature, audio_response):
     # Return only the text response if audio is not requested
     print("Response is..................")
     print(response_text)
-    return {"response":response_text}
+    return {"response": response_text}
 
 
 import speech_recognition as sr
+
+
 # Transcribe audio for chat_app using microphone input
 def transcribe_audio_from_mic(api_key):
     recognizer = sr.Recognizer()
@@ -1109,14 +1124,15 @@ def transcribe_audio_from_mic(api_key):
         return {"error": f"Speech Recognition error: {str(e)}"}
 
 
-#Chat2pdf function code
+# Chat2pdf function code
 from qdrant_client import QdrantClient
 from .utils import process_documents_and_store, query_qdrant
 from qdrant_client.http import models
 
-def chat_with_documents(api_key,files,chunk_size,user_prompt):
+
+def chat_with_documents(api_key, files, chunk_size, user_prompt):
     # Initialize Qdrant client and OpenAI model with necessary configurations
-    processed_files=[]
+    processed_files = []
     client = QdrantClient(
         url="https://e3e1ed24-80eb-4e12-98a3-22020369714b.us-east4-0.gcp.cloud.qdrant.io:6333",
         api_key="VvJp11LzgE25Zmj1SMRcxsTVRstzBCwF1UYvLMPUYWww4hO9WGKegg"
@@ -1147,18 +1163,38 @@ def chat_with_documents(api_key,files,chunk_size,user_prompt):
 
     prompt = f"""Use the provided context to answer the user questions. The entire context may not be related to user question, so answer wisely from the context.
     \nIf the answer is not available in the context, please respond with "I couldn't find relevant information about that in the provided documents."
-    
+
     \ncontext:
     \n{context_docs}
-    
+
     \nuser query: {user_prompt}
     """
 
     # Get the response from the language model
     response = llm.run(prompt)
-    return  {"response":response}
+    return {"response": response}
 
 
+#Travel Planning
+from .traveller_planer import TravelPlannerAgent
+def travel_planning(weather_api_key,geolocation_api_key,openai_api_key,user_prompt):
+    # Initialize the travel planner agent with API keys
+    travel_agent = TravelPlannerAgent(
+        weather_api_key=weather_api_key,
+        geolocation_api_key=geolocation_api_key,
+        openai_api_key=openai_api_key
+    )
+    travel_plan = travel_agent.generate_travel_plan(user_prompt)
+    return {"response":travel_plan}
+
+
+#MCQ generation
+from .mcq import MCQGeneratorAgent
+def mcq_generator(openai_api_key,user_prompt):
+    mcq_agent = MCQGeneratorAgent(openai_api_key)
+    # Generate MCQs based on the prompt
+    mcq_set = mcq_agent.generate_mcq_set(user_prompt)
+    return {"response": mcq_set}
 
 
 def save_file(file):
@@ -1170,4 +1206,3 @@ def save_file(file):
     with open(file_path, "wb") as f:
         f.write(file.read())
     return file_path
-
