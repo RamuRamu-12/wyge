@@ -451,8 +451,8 @@ def send_email(request):
             email_agent = EmailAgent(api_key)
             email_ack = email_agent.send_email(
                 to_mail,
-                subject="Your Blog Post",
-                body="Here is your generated blog .",
+                subject="Your Blog Post ",
+                body="Here is your generated blog content.",
                 attachments=[combined_doc_file_path],
                 token_json_file_path="./token.json"
             )
@@ -673,7 +673,6 @@ def save_blog_and_image_to_docx(blog_content, image_path, file_path):
 
     # Add the image if it exists
     if image_path and os.path.exists(image_path):
-        doc.add_heading("Blog Image", level=1)
         doc.add_picture(image_path, width=Inches(5.0))  # Adjust width as needed
 
     doc.save(file_path)
@@ -720,11 +719,20 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
             yt_agent = YTBlogAgent(api_key)
             print(url, datetime.now())
 
-            blog, doc_file, image = yt_agent.generate_blog(url)
+            blog_content, doc_file, image_path = yt_agent.generate_blog(url)
 
             print("result", datetime.now())
+            # Save blog content and image to a single .docx file
+            combined_doc_file_path = "./blog_post.docx"
+            save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
 
-            return {"content": blog, "image_path": image}
+            return {
+                "content": blog_content,
+                "image_path": image_path,
+                "combined_doc_file": combined_doc_file_path
+            }
+
+            #return {"content": blog, "image_path": image}
         elif option == 'linkedin_post':
             linkedin_agent = LinkedInAgent(api_key)
             yt_agent = YTBlogAgent(api_key)
@@ -745,8 +753,18 @@ def generate_blog_from_file(prompt, file, option, api_key):
             print("started")
             va_agent = VideoAudioBlogAgent(api_key)
             print("getting started")
-            blog, doc_file, image = va_agent.generate_blog(file_path)
-            return {"content": blog, "image_path": image}
+            blog_content, doc_file, image_path = va_agent.generate_blog(file_path)
+            # Save blog content and image to a single .docx file
+            combined_doc_file_path = "./blog_post.docx"
+            save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
+
+            return {
+                "content": blog_content,
+                "image_path": image_path,
+                "combined_doc_file": combined_doc_file_path
+            }
+            # return {"content": blog, "image_path": image}
+
         elif option == 'linkedin_post':
             linkedin_agent = LinkedInAgent(api_key)
             va_agent = VideoAudioBlogAgent(api_key)
