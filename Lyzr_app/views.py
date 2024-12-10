@@ -496,6 +496,8 @@ def run_openai_environment(request):
         url = request.data.get('url', '')
         file = request.FILES.get('file')  # File if attached
         files = request.FILES.getlist('file')
+        column_names = request.data.getlist('columns')
+
 
         # Retrieve agent details
         agent = db.read_agent(agent_id)
@@ -621,8 +623,10 @@ def run_openai_environment(request):
                 # print(ack)
 
         # Synthetic data handling cases(3 cases)
-        if file and 'synthetic_data_new_data' in agent[4]:
-            result = handle_synthetic_data_for_new_data(file, user_prompt, openai_api_key)
+        if user_prompt and 'synthetic_data_new_data' in agent[4]:
+            print("data generation started")
+            result = handle_synthetic_data_for_new_data(column_names, user_prompt, openai_api_key)
+            print("data generation ended")
             response_data["csv_file"] = result  # Assume result contains CSV file path
 
         elif file and 'synthetic_data_extended_data' in agent[4]:
@@ -776,7 +780,7 @@ def generate_blog_from_file(prompt, file, option, api_key):
         return {"error": str(e)}
 
 
-def handle_synthetic_data_for_new_data(uploaded_file, user_prompt, openai_api_key):
+def handle_synthetic_data_for_new_data(column_names, user_prompt, openai_api_key):
     """
     Function to handle synthetic data generation.
 
@@ -789,21 +793,21 @@ def handle_synthetic_data_for_new_data(uploaded_file, user_prompt, openai_api_ke
     - A CSV string with generated synthetic data or an error message
     """
     try:
-        # Determine file type and extract column names
-        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
-        print(file_extension)
-        if file_extension == ".xlsx":
-            df = pd.read_excel(uploaded_file)
-        elif file_extension == ".csv":
-            df = pd.read_csv(uploaded_file)
-        else:
-            return {"error": "Unsupported file format. Please upload an Excel or CSV file."}
-
-        column_names = df.columns.tolist()
-
-        # Check if the necessary information is provided
-        if not user_prompt or not column_names:
-            return {"error": "Missing user prompt or column names"}
+    #     # Determine file type and extract column names
+    #     file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+    #     print(file_extension)
+    #     if file_extension == ".xlsx":
+    #         df = pd.read_excel(uploaded_file)
+    #     elif file_extension == ".csv":
+    #         df = pd.read_csv(uploaded_file)
+    #     else:
+    #         return {"error": "Unsupported file format. Please upload an Excel or CSV file."}
+    #
+    #     column_names = df.columns.tolist()
+    #
+    #     # Check if the necessary information is provided
+    #     if not user_prompt or not column_names:
+    #         return {"error": "Missing user prompt or column names"}
 
         # Extract the number of rows from the prompt
         num_rows = extract_num_rows_from_prompt(user_prompt)
