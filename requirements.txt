@@ -3,7 +3,7 @@ psycopg2
 django-cors-headers
 psycopg2-binary
 
-vyzeai==0.1.15
+
 wyge==1.0.2
 pydub
 streamlit
@@ -22,7 +22,7 @@ youtube-transcript-api
 
 pymysql
 
-vyzeai==0.1.15
+
 wyge==1.0.2
 pydub
 streamlit
@@ -40,7 +40,7 @@ beautifulsoup4
 youtube-transcript-api
 
 
-vyzeai==0.1.15
+
 wyge==1.0.2
 streamlit
 pandas
