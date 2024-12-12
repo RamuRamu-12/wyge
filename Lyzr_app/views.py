@@ -1089,7 +1089,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
         print("----------------------------------------------------------")
         print(datetime.now())
         print("Raw agent response:", response)
-        response = response.split('Final Answer:')[-1]
+        response = response.split('**Answer**:')[-1]
     except Exception as e:
         print("Error executing agent command:", str(e))
         return JsonResponse({"error": "Failed to execute command."}, status=500)
