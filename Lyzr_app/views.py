@@ -383,19 +383,6 @@ def get_images_in_directory(directory: str) -> list:
 
 
 import re
-
-
-def extract_num_rows_from_prompt(prompt):
-    """
-    Extracts the number of rows from the user prompt.
-    Assumes the number of rows is mentioned as "Generate X rows" or similar in the prompt.
-    """
-    match = re.search(r'(\d+)\s+rows', prompt, re.IGNORECASE)
-    if match:
-        return int(match.group(1))
-    return None
-
-
 def differentiate_url(url):
     """
     Differentiates between a general website URL and a YouTube URL.
@@ -621,8 +608,8 @@ def run_openai_environment(request):
                 # print(ack)
 
         # Synthetic data handling cases(3 cases)
-        if file and 'synthetic_data_new_data' in agent[4]:
-            result = handle_synthetic_data_for_new_data(file, user_prompt, openai_api_key)
+        if user_prompt and 'synthetic_data_new_data' in agent[4]:
+            result = handle_synthetic_data_for_new_data(user_prompt, openai_api_key)
             response_data["csv_file"] = result  # Assume result contains CSV file path
 
         elif file and 'synthetic_data_extended_data' in agent[4]:
@@ -776,7 +763,56 @@ def generate_blog_from_file(prompt, file, option, api_key):
         return {"error": str(e)}
 
 
-def handle_synthetic_data_for_new_data(uploaded_file, user_prompt, openai_api_key):
+def extract_num_rows_from_prompt(user_prompt):
+    """
+    Extracts the number of rows or records from the user's prompt.
+    Supports prompts like:
+      - "Generate 100 rows of data"
+      - "Generate the 50 records of data"
+    """
+    match = re.search(r'(\d+)\s+(rows|records)', user_prompt, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def extract_columns_from_prompt(user_prompt):
+    """
+    Extracts the field names (column names) from the user's prompt.
+    Supports prompts like:
+      - "field names: S.no, Name, address, First_name"
+      - "fields: S.no, Name, address, First_name"
+      - "columns: S.no, Name, address, First_name"
+      - "field_names: S.no, Name, address, First_name"
+      - "column_names: S.no, Name, address, First_name"
+
+    Converts column names to snake_case, removes spaces and special characters.
+    Example:
+      - "S.no, Name, address, First_name"
+      -> ['s_no', 'name', 'address', 'first_name']
+    """
+    # Look for all possible field identifier formats followed by the column names
+    match = re.search(r'(field names|column names|fields|columns|field_names|column_names):\s*([a-zA-Z0-9_,\s\.]+)',
+                      user_prompt, re.IGNORECASE)
+
+    if match:
+        # Extract the part containing column names
+        raw_columns = match.group(2).split(',')
+    else:
+        return []
+
+    # Format each column name (remove spaces, convert to snake_case, lowercase)
+    formatted_columns = [
+        re.sub(r'[^a-zA-Z0-9]', '_', col.strip()).lower()
+        for col in raw_columns
+    ]
+
+    # Remove empty column names and ensure no duplicates
+    formatted_columns = list(filter(bool, formatted_columns))
+    return list(dict.fromkeys(formatted_columns))  # Remove duplicates
+
+
+def handle_synthetic_data_for_new_data(user_prompt, openai_api_key):
     """
     Function to handle synthetic data generation.
 
@@ -789,26 +825,36 @@ def handle_synthetic_data_for_new_data(uploaded_file, user_prompt, openai_api_ke
     - A CSV string with generated synthetic data or an error message
     """
     try:
-        # Determine file type and extract column names
-        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
-        print(file_extension)
-        if file_extension == ".xlsx":
-            df = pd.read_excel(uploaded_file)
-        elif file_extension == ".csv":
-            df = pd.read_csv(uploaded_file)
-        else:
-            return {"error": "Unsupported file format. Please upload an Excel or CSV file."}
+        # # Determine file type and extract column names
+        # file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+        # print(file_extension)
+        # if file_extension == ".xlsx":
+        #     df = pd.read_excel(uploaded_file)
+        # elif file_extension == ".csv":
+        #     df = pd.read_csv(uploaded_file)
+        # else:
+        #     return {"error": "Unsupported file format. Please upload an Excel or CSV file."}
+        #
+        # column_names = df.columns.tolist()
+        #
+        # # Check if the necessary information is provided
+        # if not user_prompt or not column_names:
+        #     return {"error": "Missing user prompt or column names"}
 
-        column_names = df.columns.tolist()
+        # Validate user prompt
+        if not user_prompt or not openai_api_key:
+            return JsonResponse({"error": "Missing required parameters: user_prompt or OpenAI API key"}, status=400)
 
-        # Check if the necessary information is provided
-        if not user_prompt or not column_names:
-            return {"error": "Missing user prompt or column names"}
-
-        # Extract the number of rows from the prompt
+        # Extract number of rows from the prompt
         num_rows = extract_num_rows_from_prompt(user_prompt)
         if num_rows is None:
-            return {"error": "Number of rows not found in the prompt"}
+            return JsonResponse({"error": "Number of rows or records not found in the prompt."}, status=400)
+
+        # Extract column names from the prompt
+        column_names = extract_columns_from_prompt(user_prompt)
+        print(column_names)
+        if not column_names:
+            return JsonResponse({"error": "No field names found in the prompt."}, status=400)
 
         # Generate synthetic data using the column names and the number of rows
         generated_df = generate_data_from_text(openai_api_key, user_prompt, column_names, num_rows=num_rows)
