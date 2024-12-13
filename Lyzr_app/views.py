@@ -12,9 +12,9 @@ from django.views.decorators.csrf import csrf_exempt
 from openai import OpenAI, OpenAIError
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from vyzeai.agents.react_agent import Agent
-from vyzeai.models.openai import ChatOpenAI
-from vyzeai.tools.prebuilt_tools import execute_query
+from wyge.agents.react_agent import Agent
+from wyge.models.openai import ChatOpenAI
+from wyge.tools.prebuilt_tools import execute_query
 
 from .database import PostgreSQLDB
 
@@ -264,8 +264,7 @@ def read_all_agents(request):
 
 # Creation of the openai environment.
 from rest_framework.decorators import api_view
-from vyzeai.agents.prebuilt_agents import ResearchAgent, VideoAudioBlogAgent, YTBlogAgent, BlogAgent, LinkedInAgent, \
-    VideoAgent, EmailAgent
+from wyge.agents.prebuilt_agents import ResearchAgent, BlogAgent, LinkedInAgent, ImageGenerationAgent, EmailAgent
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -414,6 +413,8 @@ from dotenv import load_dotenv
 import openai
 
 load_dotenv()
+
+
 @csrf_exempt
 def send_email(request):
     """
@@ -455,8 +456,6 @@ def send_email(request):
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
-
-
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
@@ -466,7 +465,7 @@ import shutil
 import tempfile
 from django.core.files.storage import default_storage
 from django.conf import settings
-from vyzeai.tools.raw_functions import file_to_sql
+from wyge.tools.raw_functions import file_to_sql
 from .plots import tools as plot_tools
 from .generator import generate_synthetic_data, generate_data_from_text, fill_missing_data_in_chunk
 from django.http import HttpResponse
@@ -555,13 +554,13 @@ def run_openai_environment(request):
             if url_type == "YouTube":
                 if any(tool_id in agent[4] for tool_id in BLOG_TOOL_IDS):
                     result = generate_blog_from_yt_url(user_prompt, url, 'blog_post', openai_api_key)
-                elif 'linkedin_post' in agent[4]:
-                    result = generate_blog_from_yt_url(user_prompt, url, 'linkedin_post', openai_api_key)
+            #     elif 'linkedin_post' in agent[4]:
+            #         result = generate_blog_from_yt_url(user_prompt, url, 'linkedin_post', openai_api_key)
             else:  # General Website URL
                 if any(tool_id in agent[4] for tool_id in BLOG_TOOL_IDS):
                     result = generate_blog_from_url(user_prompt, url, 'blog_post', openai_api_key)
-                elif 'linkedin_post' in agent[4]:
-                    result = generate_blog_from_url(user_prompt, url, 'linkedin_post', openai_api_key)
+                # elif 'linkedin_post' in agent[4]:
+                #     result = generate_blog_from_url(user_prompt, url, 'linkedin_post', openai_api_key)
 
             if isinstance(result, dict):
                 response_data["content"] = markdown_to_html(result.get("content", ""))
@@ -587,8 +586,8 @@ def run_openai_environment(request):
                 print("function calling here")
                 result = generate_blog_from_file(user_prompt, file, 'blog_post', openai_api_key)
                 print(result)
-            elif 'linkedin_post' in agent[4]:
-                result = generate_blog_from_file(user_prompt, file, 'linkedin_post', openai_api_key)
+            # elif 'linkedin_post' in agent[4]:
+            #     result = generate_blog_from_file(user_prompt, file, 'linkedin_post', openai_api_key)
 
             if isinstance(result, dict):
                 response_data["content"] = markdown_to_html(result.get("content", ""))
@@ -626,16 +625,16 @@ def run_openai_environment(request):
             result = chat_with_documents(openai_api_key, files, chunk_size, user_prompt)
             response_data["content"] = result["response"]
 
-        #Travel planner
+        # Travel planner
         elif user_prompt and 'travel_planner' in agent[4]:
             weather_api_key = "b307b797aa0caf2cf2c904ae302f7461"
             geolocation_api_key = "2935b537cd024c83a84b7983d7da1ddb"
-            result=travel_planning(weather_api_key,geolocation_api_key,openai_api_key,user_prompt)
+            result = travel_planning(weather_api_key, geolocation_api_key, openai_api_key, user_prompt)
             response_data["content"] = markdown_to_html(result.get("response", ""))
 
-        #MCQ Generation
+        # MCQ Generation
         elif user_prompt and 'mcq_generator' in agent[4]:
-            result=mcq_generator(openai_api_key,user_prompt)
+            result = mcq_generator(openai_api_key, user_prompt)
             # response_data["content"] = result["response"]
             response_data["content"] = markdown_to_html(result.get("response", ""))
 
@@ -651,6 +650,8 @@ def run_openai_environment(request):
 
 from docx import Document
 from docx.shared import Inches
+
+
 def save_blog_and_image_to_docx(blog_content, image_path, file_path):
     doc = Document()
     doc.add_heading("Blog Post", level=0)
@@ -672,43 +673,14 @@ def generate_blog_from_url(prompt, url, option, api_key):
             print(datetime.now())
             research_agent = ResearchAgent(api_key)
             blog_agent = BlogAgent(api_key)
-
+            img_agent = ImageGenerationAgent(api_key)
             # Generate content and context
-            context = research_agent.research(prompt, url)
+            context = research_agent.research_website(prompt, url)
+            blog_content = blog_agent.generate_blog(prompt, context)
             print(datetime.now())
-            blog_content, doc_file, image_path = blog_agent.generate_blog(prompt, url, context)
+            img_agent.generate_image(blog_content)
+            doc_file, image_path = img_agent.add_to_blog(blog_content)
 
-            # Save blog content and image to a single .docx file
-            combined_doc_file_path = "./blog_post.docx"
-            save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
-
-            return {
-                "content": blog_content,
-                "image_path":image_path,
-                "combined_doc_file": combined_doc_file_path
-            }
-            #return {"content": blog, "image_path": image}
-        elif option == 'linkedin_post':
-            linkedin_agent = LinkedInAgent(api_key)
-            research_agent = ResearchAgent(api_key)
-            context = research_agent.research(prompt, url)
-            content, image_path = linkedin_agent.generate_linkedin_post(context)
-            return {"content": content, "image_path": image_path}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# Generate content from URL (for blog or LinkedIn post)
-def generate_blog_from_yt_url(prompt, url, option, api_key):
-    try:
-        if option == 'blog_post':
-
-            yt_agent = YTBlogAgent(api_key)
-            print(url, datetime.now())
-
-            blog_content, doc_file, image_path = yt_agent.generate_blog(url)
-
-            print("result", datetime.now())
             # Save blog content and image to a single .docx file
             combined_doc_file_path = "./blog_post.docx"
             save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
@@ -718,14 +690,53 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
                 "image_path": image_path,
                 "combined_doc_file": combined_doc_file_path
             }
+            # return {"content": blog, "image_path": image}
+        # elif option == 'linkedin_post':
+        #     linkedin_agent = LinkedInAgent(api_key)
+        #     research_agent = ResearchAgent(api_key)
+        #     img_agent = ImageGenerationAgent(api_key)
+        #     context = research_agent.research_website(prompt, url)
+        #     content = linkedin_agent.generate_linkedin_post(context)
+        #     img_agent.generate_image(content)
+        #     doc_file, image_path = img_agent.add_to_blog(content)
+        #     return {"content": content, "image_path": image_path}
+    except Exception as e:
+        return {"error": str(e)}
 
-            #return {"content": blog, "image_path": image}
-        elif option == 'linkedin_post':
-            linkedin_agent = LinkedInAgent(api_key)
-            yt_agent = YTBlogAgent(api_key)
-            context = yt_agent.extract_transcript(url)
-            content, image_path = linkedin_agent.generate_linkedin_post(context)
-            return {"content": content, "image_path": image_path}
+
+# Generate content from URL (for blog or LinkedIn post)
+def generate_blog_from_yt_url(prompt, url, option, api_key):
+    try:
+        if option == 'blog_post':
+            research_agent = ResearchAgent(api_key)
+            blog_agent = BlogAgent(api_key)
+            img_agent = ImageGenerationAgent(api_key)
+            print(url, datetime.now())
+
+            blog_content = research_agent.extract_transcript_from_yt_video(url)
+            context = blog_agent.generate_blog(prompt, blog_content)
+            img_agent.generate_image(context)
+            doc_file, image_path = img_agent.add_to_blog(context)
+
+            print("result", datetime.now())
+            # Save blog content and image to a single .docx file
+            combined_doc_file_path = "./blog_post.docx"
+            print(image_path)
+            save_blog_and_image_to_docx(context, image_path, combined_doc_file_path)
+            print(image_path)
+            return {
+                "content": blog_content,
+                "image_path": image_path,
+                "combined_doc_file": combined_doc_file_path
+            }
+
+            # return {"content": blog, "image_path": image}
+        # elif option == 'linkedin_post':
+        #     linkedin_agent = LinkedInAgent(api_key)
+        #     yt_agent = YTBlogAgent(api_key)
+        #     context = yt_agent.extract_transcript(url)
+        #     content, image_path = linkedin_agent.generate_linkedin_post(context)
+        #     return {"content": content, "image_path": image_path}
     except Exception as e:
         return {"error": str(e)}
 
@@ -738,12 +749,19 @@ def generate_blog_from_file(prompt, file, option, api_key):
         print(file_path)
         if option == 'blog_post':
             print("started")
-            va_agent = VideoAudioBlogAgent(api_key)
+            research_agent = ResearchAgent(api_key)
+            blog_agent = BlogAgent(api_key)
+            img_agent = ImageGenerationAgent(api_key)
             print("getting started")
-            blog_content, doc_file, image_path = va_agent.generate_blog(file_path)
+
+            blog_content = research_agent.extract_text_from_audio_or_video(file_path)
+            context = blog_agent.generate_blog(prompt, blog_content)
+            img_agent.generate_image(context)
+            doc_file, image_path = img_agent.add_to_blog(context)
+
             # Save blog content and image to a single .docx file
             combined_doc_file_path = "./blog_post.docx"
-            save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
+            save_blog_and_image_to_docx(context, image_path, combined_doc_file_path)
 
             return {
                 "content": blog_content,
@@ -752,12 +770,12 @@ def generate_blog_from_file(prompt, file, option, api_key):
             }
             # return {"content": blog, "image_path": image}
 
-        elif option == 'linkedin_post':
-            linkedin_agent = LinkedInAgent(api_key)
-            va_agent = VideoAudioBlogAgent(api_key)
-            context = va_agent.extract_text(file_path)
-            content, image_path = linkedin_agent.generate_linkedin_post(context)
-            return {"content": content, "image_path": image_path}
+        # elif option == 'linkedin_post':
+        #     linkedin_agent = LinkedInAgent(api_key)
+        #     va_agent = VideoAudioBlogAgent(api_key)
+        #     context = va_agent.extract_text(file_path)
+        #     content, image_path = linkedin_agent.generate_linkedin_post(context)
+        #     return {"content": content, "image_path": image_path}
 
     except Exception as e:
         return {"error": str(e)}
@@ -981,10 +999,10 @@ def handle_fill_missing_data(file, openai_api_key):
 import os
 from django.core.files.storage import default_storage
 from django.http import HttpResponse
-from vyzeai.models.openai import ChatOpenAI
-from vyzeai.agents.react_agent import Agent
-from vyzeai.tools.prebuilt_tools import execute_query, execute_code, install_library
-from vyzeai.tools.raw_functions import file_to_sql, get_metadata
+from wyge.models.openai import ChatOpenAI
+from wyge.agents.react_agent import Agent
+from wyge.tools.prebuilt_tools import execute_query, execute_code, install_library
+from wyge.tools.raw_functions import file_to_sql, get_metadata
 from .system_prompt1 import reAct_prompt
 from .system_prompt2 import plot_prompt
 from .system_prompt3 import forecasting_prompt
@@ -1089,7 +1107,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
         print("----------------------------------------------------------")
         print(datetime.now())
         print("Raw agent response:", response)
-        response = response.split('Final Answer:')[-1]
+        response = response.split('Answer:')[-1]
     except Exception as e:
         print("Error executing agent command:", str(e))
         return JsonResponse({"error": "Failed to execute command."}, status=500)
@@ -1265,9 +1283,11 @@ def chat_with_documents(api_key, files, chunk_size, user_prompt):
     return {"response": response}
 
 
-#Travel Planning
+# Travel Planning
 from .traveller_planer import TravelPlannerAgent
-def travel_planning(weather_api_key,geolocation_api_key,openai_api_key,user_prompt):
+
+
+def travel_planning(weather_api_key, geolocation_api_key, openai_api_key, user_prompt):
     # Initialize the travel planner agent with API keys
     travel_agent = TravelPlannerAgent(
         weather_api_key=weather_api_key,
@@ -1275,12 +1295,14 @@ def travel_planning(weather_api_key,geolocation_api_key,openai_api_key,user_prom
         openai_api_key=openai_api_key
     )
     travel_plan = travel_agent.generate_travel_plan(user_prompt)
-    return {"response":travel_plan}
+    return {"response": travel_plan}
 
 
-#MCQ generation
+# MCQ generation
 from .mcq import MCQGeneratorAgent
-def mcq_generator(openai_api_key,user_prompt):
+
+
+def mcq_generator(openai_api_key, user_prompt):
     mcq_agent = MCQGeneratorAgent(openai_api_key)
     # Generate MCQs based on the prompt
     mcq_set = mcq_agent.generate_mcq_set(user_prompt)
