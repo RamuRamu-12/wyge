@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import io
 import base64
 from typing import List, Dict, Any, Optional
-from vyzeai.tools.base_tool import Tool, add_function
+from wyge.tools.base_tool import Tool, add_function
 from pydantic import BaseModel, Field
 
 
