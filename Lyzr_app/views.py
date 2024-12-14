@@ -382,6 +382,8 @@ def get_images_in_directory(directory: str) -> list:
 
 
 import re
+
+
 def differentiate_url(url):
     """
     Differentiates between a general website URL and a YouTube URL.
@@ -549,7 +551,9 @@ def run_openai_environment(request):
 
         # Blog_generation content with urls
         if url and user_prompt:
+            print("Getting the url.............")
             url_type = differentiate_url(url)
+            print(url_type)
             # Handling based on URL type
             if url_type == "YouTube":
                 if any(tool_id in agent[4] for tool_id in BLOG_TOOL_IDS):
@@ -668,29 +672,30 @@ def save_blog_and_image_to_docx(blog_content, image_path, file_path):
 
 
 def generate_blog_from_url(prompt, url, option, api_key):
-    try:
-        if option == 'blog_post':
-            print(datetime.now())
-            research_agent = ResearchAgent(api_key)
-            blog_agent = BlogAgent(api_key)
-            img_agent = ImageGenerationAgent(api_key)
-            # Generate content and context
-            context = research_agent.research_website(prompt, url)
-            blog_content = blog_agent.generate_blog(prompt, context)
-            print(datetime.now())
-            img_agent.generate_image(blog_content)
-            doc_file, image_path = img_agent.add_to_blog(blog_content)
+    if option == 'blog_post':
+        print(datetime.now())
+        print("Agent Initialisation will start here........")
+        research_agent = ResearchAgent(api_key)
+        blog_agent = BlogAgent(api_key)
+        img_agent = ImageGenerationAgent(api_key)
+        print("crossing all the agent initialisations")
+        # Generate content and context
+        context = research_agent.research_website(prompt, url)
+        blog_content = blog_agent.generate_blog(prompt, context)
+        print(datetime.now())
+        img_agent.generate_image(blog_content)
+        doc_file, image_path = img_agent.add_to_blog(blog_content)
 
-            # Save blog content and image to a single .docx file
-            combined_doc_file_path = "./blog_post.docx"
-            save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
+        # Save blog content and image to a single .docx file
+        combined_doc_file_path = "./blog_post.docx"
+        save_blog_and_image_to_docx(blog_content, image_path, combined_doc_file_path)
 
-            return {
-                "content": blog_content,
-                "image_path": image_path,
-                "combined_doc_file": combined_doc_file_path
-            }
-            # return {"content": blog, "image_path": image}
+        return {
+            "content": blog_content,
+            "image_path": image_path,
+            "combined_doc_file": combined_doc_file_path
+        }
+        # return {"content": blog, "image_path": image}
         # elif option == 'linkedin_post':
         #     linkedin_agent = LinkedInAgent(api_key)
         #     research_agent = ResearchAgent(api_key)
@@ -700,8 +705,8 @@ def generate_blog_from_url(prompt, url, option, api_key):
         #     img_agent.generate_image(content)
         #     doc_file, image_path = img_agent.add_to_blog(content)
         #     return {"content": content, "image_path": image_path}
-    except Exception as e:
-        return {"error": str(e)}
+    # except Exception as e:
+    #     return {"error": str(e)}
 
 
 # Generate content from URL (for blog or LinkedIn post)
@@ -714,6 +719,7 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
             print(url, datetime.now())
 
             blog_content = research_agent.extract_transcript_from_yt_video(url)
+            print("Blog content is.............")
             context = blog_agent.generate_blog(prompt, blog_content)
             img_agent.generate_image(context)
             doc_file, image_path = img_agent.add_to_blog(context)
@@ -1107,7 +1113,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
         print("----------------------------------------------------------")
         print(datetime.now())
         print("Raw agent response:", response)
-        response = response.split('Answer:')[-1]
+        response = response.split('Final Answer:')[-1]
     except Exception as e:
         print("Error executing agent command:", str(e))
         return JsonResponse({"error": "Failed to execute command."}, status=500)
@@ -1318,3 +1324,5 @@ def save_file(file):
     with open(file_path, "wb") as f:
         f.write(file.read())
     return file_path
+
+
