@@ -21,10 +21,10 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('agi_agents_app.urls')),
-    path('api/', include('data_generator.urls')),
+   # path('api/', include('data_generator.urls')),
     path('api/', include('Lyzr_app.urls')),
-    path('api/', include('linkedin_app.urls')),
-    path('api/', include('Email_Blog_app.urls')),
-    path('api/', include('sql_app.urls'))
+   # path('api/', include('linkedin_app.urls')),
+    #path('api/', include('Email_Blog_app.urls')),
+   # path('api/', include('sql_app.urls'))
 ]
 
