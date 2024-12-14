@@ -1,5 +1,5 @@
 import pandas as pd
-from vyzeai.models.openai import ChatOpenAI
+from wyge.models.openai import ChatOpenAI
 
 
 def generate_synthetic_data(api_key, file_path, num_rows=10, chunk_size=50):
