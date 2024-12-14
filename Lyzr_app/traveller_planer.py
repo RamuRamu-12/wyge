@@ -2,7 +2,7 @@ import requests
 from opencage.geocoder import OpenCageGeocode
 import openai
 import re
-from vyzeai.models.openai import ChatOpenAI
+from wyge.models.openai import ChatOpenAI
 
 
 # Function to fetch latitude and longitude for the destination using OpenCage SDK
