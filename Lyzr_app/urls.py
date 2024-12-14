@@ -1,6 +1,6 @@
 
 from django.urls import path
-from . import views
+from . import views,views_for_hana_rag
 
 urlpatterns = [
     path('environment/create', views.create_environment, name='create_environment'),
@@ -17,6 +17,10 @@ urlpatterns = [
     path('openai/run', views.run_openai_environment, name='openai_env_creation'),
     path('send_email', views.send_email, name='sending email'),
     #path('openai/run_excel', views.run_openai_with_excel, name='openai_env_excel'),
+
+    #HANA URLS
+    path('processing_files', views_for_hana_rag.processing_files, name='processing_files'),
+    path('query_making', views_for_hana_rag.query_system, name='query system'),
 
 
 
