@@ -1,6 +1,6 @@
 import openai
 import re
-from vyzeai.models.openai import ChatOpenAI
+from wyge.models.openai import ChatOpenAI
 
 
 class MCQGeneratorAgent:
