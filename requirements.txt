@@ -4,7 +4,7 @@ django-cors-headers
 psycopg2-binary
 
 
-wyge==1.0.2
+wyge==1.0.4
 pydub
 streamlit
 moviepy
@@ -23,7 +23,7 @@ youtube-transcript-api
 pymysql
 
 
-wyge==1.0.2
+wyge==1.0.4
 pydub
 streamlit
 moviepy
@@ -41,7 +41,7 @@ youtube-transcript-api
 
 
 
-wyge==1.0.2
+wyge==1.0.4
 streamlit
 pandas
 openpyxl
