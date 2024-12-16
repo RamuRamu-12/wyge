@@ -683,7 +683,7 @@ def generate_blog_from_url(prompt, url, option, api_key):
         context = research_agent.research_website(prompt, url)
         blog_content = blog_agent.generate_blog(prompt, context)
         print(datetime.now())
-        img_agent.generate_image(blog_content)
+        #img_agent.generate_image(blog_content)
         doc_file, image_path = img_agent.add_to_blog(blog_content)
 
         # Save blog content and image to a single .docx file
@@ -721,7 +721,7 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
             blog_content = research_agent.extract_transcript_from_yt_video(url)
             print("Blog content is.............")
             context = blog_agent.generate_blog(prompt, blog_content)
-            img_agent.generate_image(context)
+            #img_agent.generate_image(context)
             doc_file, image_path = img_agent.add_to_blog(context)
 
             print("result", datetime.now())
@@ -762,7 +762,7 @@ def generate_blog_from_file(prompt, file, option, api_key):
 
             blog_content = research_agent.extract_text_from_audio_or_video(file_path)
             context = blog_agent.generate_blog(prompt, blog_content)
-            img_agent.generate_image(context)
+            #img_agent.generate_image(context)
             doc_file, image_path = img_agent.add_to_blog(context)
 
             # Save blog content and image to a single .docx file
