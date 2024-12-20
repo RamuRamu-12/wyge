@@ -497,9 +497,15 @@ def query_system(request):
         When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
 
         ```
-
+        Thought: Do I need to use a tool? No
         Final Answer: [your response here]
         ```
+        **Response Format**:  
+        - When retrieving data from the SQL database or the RAG system, always present the results in a clear and structured **tabular format**.  
+        - The table should have proper column headers that match the context of the user's query.  
+        - If applicable, align the format of numeric, text, and date/time data for clarity.  
+
+        
         When returning data retrieved from the database or RAG system, always aim to present it in a **tabular format** for clarity and better readability, if applicable. Ensure the table aligns with the structure of the data being shared.
         Begin! Remember to maintain this exact format for all interactions and focus on writing clean, error-free SQL queries. Make sure to provide a Final Answer to the user's question.
 
