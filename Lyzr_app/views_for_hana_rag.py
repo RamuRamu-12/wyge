@@ -501,7 +501,7 @@ def query_system(request):
         Final Answer: [your response here]
         ```
         **Response Format**:  
-        - When retrieving data from the SQL database or the RAG system, always present the results in a clear and structured **tabular format**.  
+        - When retrieving data from the SQL database or the RAG system, always present the results in a clear and structured **tabular format** within the table tags.  
         - The table should have proper column headers that match the context of the user's query.  
         - If applicable, align the format of numeric, text, and date/time data for clarity.  
 
