@@ -22,6 +22,16 @@ urlpatterns = [
     path('processing_files', views_for_hana_rag.processing_files, name='processing_files'),
     path('query_making', views_for_hana_rag.query_system, name='query system'),
 
+    #Dynamic agents
+    path('dyn_create-agent', views.create_agent_with_openai_environment, name='create_agent'),
+    path('dyn_agents/<int:agent_id>', views.read_dynamic_agent, name='read_agent'),
+    path('dyn_agents/<int:agent_id>/update', views.update_dynamic_agent, name='update_agent'),
+    path('dyn_agents/<int:agent_id>/delete', views.delete_dynamic_agent, name='delete_agent'),
+    path('dyn_agents/', views.read_all_dynamic_agents, name='read_all_agents'),
+    #path('create-openai-environment/', create_openai_environment_api, name='create_openai_environment'),
+    path('run-agent-environment', views.run_agent_environment, name='run_agent_environment'),
+
+
 
 
 ]
