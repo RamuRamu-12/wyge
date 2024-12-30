@@ -277,79 +277,6 @@ from rest_framework import status
 import requests
 
 
-# Main API to create an OpenAI environment
-@api_view(['POST'])
-def create_openai_environment_api(request):
-    try:
-        agent_id = request.data.get('agent_id')
-
-        if not agent_id:
-            return Response({"error": "Agent ID is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Retrieve the agent details from the database
-        agent = db.read_agent(agent_id)
-        if not agent:
-            return Response({"error": "Agent not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Proceed with environment creation logic
-        agent_details = {
-            "name": agent[1],
-            "system_prompt": agent[2],
-            "agent_description": agent[3],
-            "tools": agent[4],
-            "env_id": agent[6]
-        }
-
-        # Retrieve API key from the environment table
-        env_details = db.read_environment(agent_details['env_id'])
-        if not env_details or not env_details[2]:
-            return Response({"error": "API key not found in environment table"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        openai_api_key = env_details[2]
-
-        # Create the OpenAI environment
-        environment_response = create_openai_environment(agent_details, openai_api_key)
-
-        if environment_response.get("success"):
-            return Response({"message": "OpenAI environment created successfully.",
-                             "details": environment_response},
-                            status=status.HTTP_201_CREATED)
-        else:
-            return Response({"error": "Failed to create OpenAI environment."},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-# Helper function to create OpenAI environment
-def create_openai_environment(agent_details, openai_api_key):
-    try:
-        url = "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {openai_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "gpt-4o-mini",  # Ensure this model exists or use a valid one
-            "messages": [
-                {"role": "system", "content": agent_details['system_prompt']},
-                {"role": "user", "content": agent_details['agent_description']}
-            ],
-            "max_tokens": 1500
-        }
-
-        response = requests.post(url, headers=headers, json=payload)
-
-        if response.status_code == 200:
-            return {"success": True, "response": response.json()}
-        else:
-            return {"success": False, "error": response.text}
-
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
 
 def image_to_base64(image_path):
     try:
@@ -641,6 +568,13 @@ def run_openai_environment(request):
             result = mcq_generator(openai_api_key, user_prompt)
             # response_data["content"] = result["response"]
             response_data["content"] = markdown_to_html(result.get("response", ""))
+
+        #Interior Design
+        elif user_prompt and 'interior_design' in agent[4]:
+            print(user_prompt)
+            result=interior_designer(user_prompt)
+            response_data["content"] = result["response"]
+
 
         # Construct response
         if response_data:
@@ -1291,8 +1225,6 @@ def chat_with_documents(api_key, files, chunk_size, user_prompt):
 
 # Travel Planning
 from .traveller_planer import TravelPlannerAgent
-
-
 def travel_planning(weather_api_key, geolocation_api_key, openai_api_key, user_prompt):
     # Initialize the travel planner agent with API keys
     travel_agent = TravelPlannerAgent(
@@ -1306,8 +1238,6 @@ def travel_planning(weather_api_key, geolocation_api_key, openai_api_key, user_p
 
 # MCQ generation
 from .mcq import MCQGeneratorAgent
-
-
 def mcq_generator(openai_api_key, user_prompt):
     mcq_agent = MCQGeneratorAgent(openai_api_key)
     # Generate MCQs based on the prompt
@@ -1326,3 +1256,362 @@ def save_file(file):
     return file_path
 
 
+#Interior design agent
+from .interior import InteriorDesignAgent
+def interior_designer(user_prompt):
+    agent = InteriorDesignAgent()
+    image_url = agent.generate_design(user_prompt)
+    print("Generated Image URL:", image_url)
+    return {"response":image_url}
+
+
+#-----------------------------------------------------------------------------------------------------------
+
+#Dynamic agen creation code
+
+# Create Agent
+@api_view(['POST'])
+def create_agent_with_openai_environment(request):
+    """
+    API to create an agent and its corresponding OpenAI environment dynamically.
+    """
+    try:
+        # Extract agent details from the request
+        data = request.data
+        name = data.get('agent_name')
+        agent_role = data.get('agent_role')
+        agent_description = data.get('agent_description')
+        ext_tools = data.get('ext_tools')
+        env_id = data.get('env_id')
+
+        if not env_id:
+            return Response({"error": "Environment ID is required"}, status=400)
+
+        # Step 1: Create the agent in the database
+        agent_id = db.create_dynamic_agent(name, agent_role, agent_description, ext_tools, env_id)
+        if not agent_id:
+            return Response({"error": "Failed to create agent in the database."}, status=500)
+
+        # Retrieve the created agent details
+        agent = db.read_dynamic_agent(agent_id)
+        if not agent or len(agent) < 6:
+            return Response({"error": "Agent details not found or incomplete."}, status=500)
+
+        # Extract agent details for OpenAI environment creation
+        agent_details = {
+            "name": agent[1],
+            "agent_goal": agent[2],
+            "agent_description": agent[3],
+            "ext_tools": agent[4],
+            "env_id": agent[5]
+        }
+
+        # Retrieve API key from the environment table
+        env_details = db.read_environment(agent_details['env_id'])
+        if not env_details or len(env_details) < 3 or not env_details[2]:
+            return Response({"error": "API key not found in environment table"}, status=500)
+
+        openai_api_key = env_details[2]
+
+        # Step 2: Dynamically construct the system prompt
+        system_prompt = generate_system_prompt(agent_details)
+
+        # Add the system prompt to agent details for payload
+        agent_details['system_prompt'] = system_prompt
+
+        # Step 3: Create the OpenAI environment
+        environment_response = create_openai_environment(agent_details, openai_api_key)
+
+        if environment_response.get("success"):
+            return Response({
+                "message": "Agent and OpenAI environment created successfully.",
+                "agent_id": agent_id,
+                "openai_environment_details": environment_response
+            }, status=201)
+        else:
+            return Response({
+                "error": "Agent created, but OpenAI environment setup failed.",
+                "agent_id": agent_id,
+                "details": environment_response
+            }, status=500)
+
+    except Exception as e:
+        logger.error(f"Error creating agent: {str(e)}")  # Add detailed logging
+        return Response({"error": f"Internal error: {str(e)}"}, status=400)
+
+
+# Read Agent by ID
+@api_view(['GET'])
+def read_dynamic_agent(request, agent_id):
+    try:
+        agent = db.read_dynamic_agent(agent_id)
+        if agent:
+            return Response({
+                "id": agent[0],
+                "agent_name": agent[1],
+                "agent_goal": agent[2],
+                "agent_description": agent[3],
+                "ext_tools": agent[4],
+                "env_id": agent[5]
+            }, status=200)
+        return Response({"error": "Agent not found"}, status=404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+
+# Update Agent by ID
+@api_view(['POST'])
+def update_dynamic_agent(request, agent_id):
+    try:
+        data = request.data
+        name = data.get('agent_name')
+        agent_goal = data.get('agent_goal')
+        agent_description = data.get('agent_description')
+        tools = data.get('ext_tools')
+        env_id = data.get('env_id')
+
+        # Update agent in the database
+        db.update_agent(agent_id, name, agent_goal, agent_description, tools, env_id)
+
+        return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+
+# Delete Agent by ID
+@api_view(['GET'])
+def delete_dynamic_agent(request, agent_id):
+    try:
+        db.delete_dynamic_agent(agent_id)
+        return Response({"message": f"Agent with ID {agent_id} deleted successfully."}, status=204)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+
+# Read all Agents
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import logging
+@api_view(['GET'])
+def read_all_dynamic_agents(request):
+    try:
+        # Fetch all agents from the database
+        agents = db.get_all_dynamic_agents()
+
+        # Check if any agents are returned
+        if not agents:
+            return Response({"message": "No agents found"}, status=404)
+
+        # Structure the agents' data for JSON response
+        agents_data = [
+            {
+                "id": agent[0],
+                "agent_name": agent[1],
+                "agent_role": agent[2],
+                "agent_description": agent[3],
+                "ext_tools": agent[4],
+                "env_id": agent[5]
+            }
+            for agent in agents
+        ]
+
+        return Response({"agents": agents_data}, status=200)
+
+    except Exception as e:
+        # Log the error for further investigation
+        logger.error(f"Error fetching agents: {str(e)}")
+
+        # Return a user-friendly error message
+        return Response({"error": "An error occurred while fetching agents"}, status=500)
+
+
+
+# Main API to create an agent(dynamically)
+@api_view(['POST'])
+def create_openai_environment_api(request):
+    """
+    API to create an OpenAI environment dynamically based on agent_name, agent_goal, and agent_description.
+    """
+    try:
+        agent_id = request.data.get('agent_id')
+
+        if not agent_id:
+            return Response({"error": "Agent ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Retrieve the agent details from the database
+        agent = db.read_dynamic_agent(agent_id)
+        if not agent:
+            return Response({"error": "Agent not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Extract agent details
+        agent_details = {
+            "name": agent[1],
+            "agent_goal": agent[2],
+            "agent_description": agent[3],
+            "ext_tools": agent[4],
+            "env_id": agent[5]
+        }
+
+        # Retrieve API key from the environment table
+        env_details = db.read_environment(agent_details['env_id'])
+        if not env_details or not env_details[2]:
+            return Response({"error": "API key not found in environment table"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        openai_api_key = env_details[2]
+
+        # Dynamically construct the system prompt based on agent details
+        system_prompt = generate_system_prompt(agent_details)
+
+        # Add the system prompt to agent details for payload
+        agent_details['system_prompt'] = system_prompt
+
+        # Create the OpenAI environment
+        environment_response = create_openai_environment(agent_details, openai_api_key)
+
+        if environment_response.get("success"):
+            return Response({"message": "OpenAI environment created successfully.",
+                             "details": environment_response},
+                            status=status.HTTP_201_CREATED)
+        else:
+            return Response({"error": "Failed to create OpenAI environment.",
+                             "details": environment_response},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def generate_system_prompt(agent_details):
+    return f"""
+    You are {agent_details['name']}, an AI agent designed to achieve the following goal:
+    {agent_details['agent_goal']}.
+
+    Your description: {agent_details['agent_description']}.
+
+    Behave in a manner consistent with this goal and description. Use external tools if required 
+    (e.g., {', '.join(agent_details['ext_tools']) if agent_details['ext_tools'] else 'none'}). 
+    Provide accurate, helpful, and concise responses to user queries.
+    """
+
+
+def create_openai_environment(agent_details, openai_api_key):
+    try:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {openai_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "gpt-4o-mini",  # Adjust the model based on your requirements
+            "messages": [
+                {"role": "system", "content": agent_details['system_prompt']},
+                {"role": "user", "content": agent_details['agent_description']}
+            ],
+            "max_tokens": 1500
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            return {"success": True, "response": response.json()}
+        else:
+            return {"success": False, "error": response.text}
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# API: Run OpenAI Environment
+# API: Run OpenAI Environment
+@api_view(['POST'])
+def run_agent_environment(request):
+    """
+    API to interact with a dynamically created OpenAI environment using user-specific queries.
+    """
+    try:
+        print("Received request to run_agent_environment")
+
+        # Extract the agent ID and user query from the request
+        data = request.data
+        print("Request data:", data)
+
+        agent_id = data.get('agent_id')
+        user_query = data.get('query')
+
+        if not agent_id or not user_query:
+            print("Missing agent_id or query in request")
+            return Response({"error": "Agent ID and query are required"}, status=400)
+
+        print("Fetching agent details for agent_id:", agent_id)
+        # Retrieve agent details from the database
+        agent = db.read_dynamic_agent(agent_id)
+        if not agent:
+            print("Agent not found for agent_id:", agent_id)
+            return Response({"error": "Agent not found"}, status=404)
+
+        # Extract agent details
+        agent_details = {
+            "name": agent[1],
+            "agent_goal": agent[2],
+            "agent_description": agent[3],
+            "ext_tools": agent[4],
+            "env_id": agent[5]
+        }
+        print("Agent details:", agent_details)
+
+        # Retrieve API key from the environment table
+        print("Fetching environment details for env_id:", agent_details['env_id'])
+        env_details = db.read_environment(agent_details['env_id'])
+        if not env_details or not env_details[2]:
+            print("API key not found in environment table for env_id:", agent_details['env_id'])
+            return Response({"error": "API key not found in environment table"}, status=500)
+
+        openai_api_key = env_details[2]
+        print("OpenAI API key retrieved successfully")
+
+        # Prepare payload for OpenAI API request
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {openai_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "gpt-4o-mini",  # Adjust the model based on your requirements
+            "messages": [
+                {"role": "system", "content": generate_system_prompt(agent_details)},
+                {"role": "user", "content": user_query}
+            ],
+            "max_tokens": 1500
+        }
+        print("Payload prepared for OpenAI API request:", payload)
+
+        # Send the query to the OpenAI environment
+        print("Sending request to OpenAI API...")
+        response = requests.post(url, headers=headers, json=payload)
+        print("OpenAI API response status code:", response.status_code)
+
+        if response.status_code == 200:
+            openai_response = response.json()
+            print("OpenAI API response:", openai_response)
+
+            # Extract the 'choices' key from the OpenAI response to get the content
+            chat_content = openai_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            print("Extracted chat content:", chat_content)
+
+            return Response({
+                "success": True,
+                "response": chat_content
+            }, status=200)
+        else:
+            print("Error response from OpenAI API:", response.text)
+            return Response({
+                "success": False,
+                "error": response.text
+            }, status=500)
+
+    except Exception as e:
+        print("Exception occurred:", str(e))
+        return Response({"error": str(e)}, status=400)
+
+#Tools Creation
