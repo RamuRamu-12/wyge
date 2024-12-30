@@ -303,38 +303,152 @@ class PostgreSQLDB:
             return None
 
 
-    # #Sessions table
-    # def create_sessions_table(self):
-    #     try:
-    #         conn = self.connect()
-    #         if conn is not None:
-    #             cursor = conn.cursor()
-    #             query = """
-    #             CREATE TABLE user_sessions (
-    #             session_id SERIAL PRIMARY KEY,
-    #             user_id INTEGER NOT NULL,
-    #             agent_id VARCHAR(255) REFERENCES agents(id) ON DELETE CASCADE,
-    #             session_data TEXT,
-    #             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    #             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    #              );
-    #             """
-    #             cursor.execute(query)
-    #             conn.commit()
-    #             cursor.close()
-    #             conn.close()
-    #             print("Agents table created successfully.")
-    #     except Exception as e:
-    #         print(f"Error creating agents table: {e}")
-    #
+    #  Dynamic Agents table
+    # Create  Dynamic agents table linked with environments, including 'tools' column
+    def create_dynamic_agents_table(self):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = """
+                CREATE TABLE IF NOT EXISTS dynamic_agents (
+                    id SERIAL PRIMARY KEY,
+                    agent_name VARCHAR(100) NOT NULL,
+                    agent_goal TEXT,
+                    agent_description TEXT,
+                    ext_tools TEXT,  -- Tools used by the agent 
+                    env_id INT REFERENCES environment(id) ON DELETE CASCADE
+                );
+                """
+                cursor.execute(query)
+                conn.commit()
+                cursor.close()
+                conn.close()
+                print("Dynamic_Agents table created successfully.")
+        except Exception as e:
+            print(f"Error creating agents table: {e}")
+
+    # Drop agents table
+    def drop_dynamic_agents_table(self):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = "DROP TABLE IF EXISTS dynamic_agents;"
+                cursor.execute(query)
+                conn.commit()
+                cursor.close()
+                conn.close()
+                print("Dynamic Agents table deleted.")
+        except Exception as e:
+            print(f"Error deleting agents table: {e}")
+
+    # Insert a new agent, including 'tools'
+    # Insert a new agent, including 'upload_attachment'
+    def create_dynamic_agent(self, agent_name, agent_goal, agent_description, ext_tools, env_id):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = """
+                INSERT INTO dynamic_agents (agent_name, agent_goal, agent_description, ext_tools, env_id)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id;
+                """
+                cursor.execute(query, (agent_name, agent_goal, agent_description, ext_tools, env_id))
+                agent_id = cursor.fetchone()[0]  # Expecting a single row with the new agent ID
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return agent_id
+        except Exception as e:
+            print(f"Error creating agent: {e}")
+            return None
+
+    # Read agent by ID
+    def read_dynamic_agent(self, agent_id):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = "SELECT * FROM dynamic_agents WHERE id = %s;"
+                cursor.execute(query, (agent_id,))
+                agent = cursor.fetchone()
+                cursor.close()
+                conn.close()
+                return agent
+        except Exception as e:
+            print(f"Error reading agent: {e}")
+            return None
+
+    # Update agent, including 'tools'
+    def update_dynamic_agent(self, agent_id, agent_name=None, agent_goal=None, agent_description=None, ext_tools=None,
+                      env_id=None):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = """
+                UPDATE dynamic_agents
+                SET agent_name = COALESCE(%s, name),
+                    agent_goal = COALESCE(%s, system_prompt),
+                    agent_description = COALESCE(%s, agent_description),
+                    ext_tools = COALESCE(%s, tools),
+                    env_id = COALESCE(%s, env_id)
+                WHERE id = %s;
+                """
+                cursor.execute(query, (
+                    agent_name, agent_goal, agent_description, ext_tools, env_id, agent_id))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                print(f"Agent with ID {agent_id} updated.")
+        except Exception as e:
+            print(f"Error updating agent: {e}")
+
+    # Delete agent by ID
+    def delete_dynamic_agent(self, agent_id):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = "DELETE FROM dynamic_agents WHERE id = %s;"
+                cursor.execute(query, (agent_id,))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                print(f"Agent with ID {agent_id} deleted.")
+        except Exception as e:
+            print(f"Error deleting agent: {e}")
+
+    # Get all agents, including 'tools'
+    def get_all_dynamic_agents(self):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = """
+                SELECT id, agent_name, agent_goal, agent_description, ext_tools,env_id 
+                FROM dynamic_agents;
+                """
+                cursor.execute(query)
+                agents = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                return agents
+        except Exception as e:
+            print(f"Error retrieving agents: {e}")
+            return None
 
 
 if __name__ == "__main__":
     db = PostgreSQLDB(dbname='test', user='test_owner', password='tcWI7unQ6REA')
     db.table_creation()
     db.create_agents_table()
+    db.create_dynamic_agents_table()
     #db.read_environment(1)
     # db.table_deletion()
     # db.drop_agents_table()
+    #db.drop_dynamic_agents_table()
 
 
