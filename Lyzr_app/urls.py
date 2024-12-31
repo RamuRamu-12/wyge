@@ -23,7 +23,7 @@ urlpatterns = [
     path('query_making', views_for_hana_rag.query_system, name='query system'),
 
     #Dynamic agents
-    path('dyn_create-agent', views.create_agent_with_openai_environment, name='create_agent'),
+    path('dyn_create-agent', views.create_dynamic_agent, name='create_agent'),
     path('dyn_agents/<int:agent_id>', views.read_dynamic_agent, name='read_agent'),
     path('dyn_agents/<int:agent_id>/update', views.update_dynamic_agent, name='update_agent'),
     path('dyn_agents/<int:agent_id>/delete', views.delete_dynamic_agent, name='delete_agent'),
