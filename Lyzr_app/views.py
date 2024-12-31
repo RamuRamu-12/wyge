@@ -137,7 +137,10 @@ def read_all_environments(request):
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+import logging
 
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Create Agent
 @api_view(['POST'])
@@ -150,12 +153,15 @@ def create_agent(request):
         tools = data.get('tools')
         upload_attachment = data.get('upload_attachment', False)  # Default value set to False
         env_id = data.get('env_id')
+        dynamic_agent_id = data.get('dynamic_agent_id')  # New field
 
         if not env_id:
             return Response({"error": "Environment ID is required"}, status=400)
 
         # Create the agent in the database
-        agent_id = db.create_agent(name, system_prompt, agent_description, tools, upload_attachment, env_id)
+        agent_id = db.create_agent(
+            name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id
+        )
 
         return Response({"agent_id": agent_id}, status=201)
     except Exception as e:
@@ -175,10 +181,10 @@ def read_agent(request, agent_id):
                 "agent_description": agent[3],
                 "tools": agent[4],
                 "Additional_Features": {
-                    "upload_attachment": agent[5],  # Include upload_excel
-
+                    "upload_attachment": agent[5],
                 },
-                "env_id": agent[6]
+                "env_id": agent[6],
+                "dynamic_agent_id": agent[7]  # Include new field
             }, status=200)
         return Response({"error": "Agent not found"}, status=404)
     except Exception as e:
@@ -194,12 +200,14 @@ def update_agent(request, agent_id):
         system_prompt = data.get('system_prompt')
         agent_description = data.get('agent_description')
         tools = data.get('tools')
-        upload_attachment = data.get('upload_attachment')  # Handle upload_excel update
-
+        upload_attachment = data.get('upload_attachment')
         env_id = data.get('env_id')
+        dynamic_agent_id = data.get('dynamic_agent_id')  # Handle new field
 
         # Update agent in the database
-        db.update_agent(agent_id, name, system_prompt, agent_description, tools, upload_attachment, env_id)
+        db.update_agent(
+            agent_id, name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id
+        )
 
         return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
     except Exception as e:
@@ -216,15 +224,7 @@ def delete_agent(request, agent_id):
         return Response({"error": str(e)}, status=400)
 
 
-# Read all Agents
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-import logging
-
-# Set up logging
-logger = logging.getLogger(__name__)
-
-
+# Read All Agents
 @api_view(['GET'])
 def read_all_agents(request):
     try:
@@ -244,10 +244,10 @@ def read_all_agents(request):
                 "agent_description": agent[3],
                 "tools": agent[4],
                 "Additional_Features": {
-                    "upload_attachment": agent[5],  # Include upload_excel
-
+                    "upload_attachment": agent[5],
                 },
-                "env_id": agent[6]
+                "env_id": agent[6],
+                "dynamic_agent_id": agent[7]  # Include new field
             }
             for agent in agents
         ]
@@ -574,6 +574,9 @@ def run_openai_environment(request):
             print(user_prompt)
             result=interior_designer(user_prompt)
             response_data["content"] = result["response"]
+
+        # #Dynamic_agents
+        # elif user_prompt and 'dynamic_agents' in agent[4]:
 
 
         # Construct response
@@ -1271,69 +1274,46 @@ def interior_designer(user_prompt):
 
 # Create Agent
 @api_view(['POST'])
-def create_agent_with_openai_environment(request):
+def create_dynamic_agent(request):
     """
-    API to create an agent and its corresponding OpenAI environment dynamically.
+    API to create an agent dynamically based on the dynamic_ai_agents table.
     """
     try:
         # Extract agent details from the request
         data = request.data
         name = data.get('agent_name')
-        agent_role = data.get('agent_role')
+        agent_goal = data.get('agent_goal')  # Change from 'agent_role' to 'agent_goal'
         agent_description = data.get('agent_description')
-        ext_tools = data.get('ext_tools')
-        env_id = data.get('env_id')
+        agent_instruction = data.get('agent_instruction')
 
-        if not env_id:
-            return Response({"error": "Environment ID is required"}, status=400)
+        # Ensure required fields are provided
+        if not name or not agent_goal or not agent_description:
+            return Response({"error": "Agent name, goal, and description are required."}, status=400)
 
         # Step 1: Create the agent in the database
-        agent_id = db.create_dynamic_agent(name, agent_role, agent_description, ext_tools, env_id)
+        agent_id = db.create_dynamic_agent(name, agent_goal, agent_description, agent_instruction)
         if not agent_id:
             return Response({"error": "Failed to create agent in the database."}, status=500)
 
         # Retrieve the created agent details
         agent = db.read_dynamic_agent(agent_id)
-        if not agent or len(agent) < 6:
+        if not agent:
             return Response({"error": "Agent details not found or incomplete."}, status=500)
 
-        # Extract agent details for OpenAI environment creation
+        # Step 2: Construct agent details for the response
         agent_details = {
-            "name": agent[1],
+            "agent_id": agent_id,
+            "agent_name": agent[1],
             "agent_goal": agent[2],
             "agent_description": agent[3],
-            "ext_tools": agent[4],
-            "env_id": agent[5]
+            "agent_instruction": agent[4]
         }
 
-        # Retrieve API key from the environment table
-        env_details = db.read_environment(agent_details['env_id'])
-        if not env_details or len(env_details) < 3 or not env_details[2]:
-            return Response({"error": "API key not found in environment table"}, status=500)
-
-        openai_api_key = env_details[2]
-
-        # Step 2: Dynamically construct the system prompt
-        system_prompt = generate_system_prompt(agent_details)
-
-        # Add the system prompt to agent details for payload
-        agent_details['system_prompt'] = system_prompt
-
-        # Step 3: Create the OpenAI environment
-        environment_response = create_openai_environment(agent_details, openai_api_key)
-
-        if environment_response.get("success"):
-            return Response({
-                "message": "Agent and OpenAI environment created successfully.",
-                "agent_id": agent_id,
-                "openai_environment_details": environment_response
-            }, status=201)
-        else:
-            return Response({
-                "error": "Agent created, but OpenAI environment setup failed.",
-                "agent_id": agent_id,
-                "details": environment_response
-            }, status=500)
+        # Step 3: Return success response with agent details
+        return Response({
+            "message": "Agent created successfully.",
+            "agent_details": agent_details
+        }, status=201)
 
     except Exception as e:
         logger.error(f"Error creating agent: {str(e)}")  # Add detailed logging
@@ -1351,8 +1331,8 @@ def read_dynamic_agent(request, agent_id):
                 "agent_name": agent[1],
                 "agent_goal": agent[2],
                 "agent_description": agent[3],
-                "ext_tools": agent[4],
-                "env_id": agent[5]
+                "agent_instruction":agent[4]
+
             }, status=200)
         return Response({"error": "Agent not found"}, status=404)
     except Exception as e:
@@ -1367,11 +1347,11 @@ def update_dynamic_agent(request, agent_id):
         name = data.get('agent_name')
         agent_goal = data.get('agent_goal')
         agent_description = data.get('agent_description')
-        tools = data.get('ext_tools')
-        env_id = data.get('env_id')
+        agent_instruction = data.get('agent_instruction')
+
 
         # Update agent in the database
-        db.update_agent(agent_id, name, agent_goal, agent_description, tools, env_id)
+        db.update_dynamic_agent(agent_id, name, agent_goal, agent_description,agent_instruction)
 
         return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
     except Exception as e:
@@ -1409,8 +1389,7 @@ def read_all_dynamic_agents(request):
                 "agent_name": agent[1],
                 "agent_role": agent[2],
                 "agent_description": agent[3],
-                "ext_tools": agent[4],
-                "env_id": agent[5]
+                "agent_instruction":agent[4]
             }
             for agent in agents
         ]
@@ -1488,9 +1467,11 @@ def generate_system_prompt(agent_details):
     {agent_details['agent_goal']}.
 
     Your description: {agent_details['agent_description']}.
+    
+    You have to follow the instructions:{agent_details['agent_instructions']}
 
     Behave in a manner consistent with this goal and description. Use external tools if required 
-    (e.g., {', '.join(agent_details['ext_tools']) if agent_details['ext_tools'] else 'none'}). 
+    (e.g., {', '.join(agent_details['tools']) if agent_details['tools'] else 'none'}). 
     Provide accurate, helpful, and concise responses to user queries.
     """
 
@@ -1522,7 +1503,7 @@ def create_openai_environment(agent_details, openai_api_key):
         return {"success": False, "error": str(e)}
 
 
-# API: Run OpenAI Environment
+
 # API: Run OpenAI Environment
 @api_view(['POST'])
 def run_agent_environment(request):
@@ -1545,24 +1526,27 @@ def run_agent_environment(request):
 
         print("Fetching agent details for agent_id:", agent_id)
         # Retrieve agent details from the database
-        agent = db.read_dynamic_agent(agent_id)
+        agent = db.read_agent(agent_id)
         if not agent:
             print("Agent not found for agent_id:", agent_id)
             return Response({"error": "Agent not found"}, status=404)
 
+        dyn_agent=agent[7]
+        dynamic_agent=db.read_dynamic_agent(dyn_agent)
+
         # Extract agent details
         agent_details = {
-            "name": agent[1],
-            "agent_goal": agent[2],
-            "agent_description": agent[3],
-            "ext_tools": agent[4],
-            "env_id": agent[5]
+            "name": dynamic_agent[1],
+            "agent_goal": dynamic_agent[2],
+            "agent_description": dynamic_agent[3],
+            "agent_instructions":dynamic_agent[4],
+            "tools":agent[4]
         }
         print("Agent details:", agent_details)
 
         # Retrieve API key from the environment table
-        print("Fetching environment details for env_id:", agent_details['env_id'])
-        env_details = db.read_environment(agent_details['env_id'])
+        print("Fetching environment details for env_id:", agent[6])
+        env_details = db.read_environment(agent[6])
         if not env_details or not env_details[2]:
             print("API key not found in environment table for env_id:", agent_details['env_id'])
             return Response({"error": "API key not found in environment table"}, status=500)
