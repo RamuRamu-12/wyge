@@ -142,6 +142,7 @@ import logging
 # Set up logging
 logger = logging.getLogger(__name__)
 
+
 # Create Agent
 @api_view(['POST'])
 def create_agent(request):
@@ -275,7 +276,6 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 import requests
-
 
 
 def image_to_base64(image_path):
@@ -569,15 +569,14 @@ def run_openai_environment(request):
             # response_data["content"] = result["response"]
             response_data["content"] = markdown_to_html(result.get("response", ""))
 
-        #Interior Design
+        # Interior Design
         elif user_prompt and 'interior_design' in agent[4]:
             print(user_prompt)
-            result=interior_designer(user_prompt)
+            result = interior_designer(user_prompt)
             response_data["content"] = result["response"]
 
         # #Dynamic_agents
         # elif user_prompt and 'dynamic_agents' in agent[4]:
-
 
         # Construct response
         if response_data:
@@ -620,7 +619,7 @@ def generate_blog_from_url(prompt, url, option, api_key):
         context = research_agent.research_website(prompt, url)
         blog_content = blog_agent.generate_blog(prompt, context)
         print(datetime.now())
-        #img_agent.generate_image(blog_content)
+        # img_agent.generate_image(blog_content)
         doc_file, image_path = img_agent.add_to_blog(blog_content)
 
         # Save blog content and image to a single .docx file
@@ -658,7 +657,7 @@ def generate_blog_from_yt_url(prompt, url, option, api_key):
             blog_content = research_agent.extract_transcript_from_yt_video(url)
             print("Blog content is.............")
             context = blog_agent.generate_blog(prompt, blog_content)
-            #img_agent.generate_image(context)
+            # img_agent.generate_image(context)
             doc_file, image_path = img_agent.add_to_blog(context)
 
             print("result", datetime.now())
@@ -699,7 +698,7 @@ def generate_blog_from_file(prompt, file, option, api_key):
 
             blog_content = research_agent.extract_text_from_audio_or_video(file_path)
             context = blog_agent.generate_blog(prompt, blog_content)
-            #img_agent.generate_image(context)
+            # img_agent.generate_image(context)
             doc_file, image_path = img_agent.add_to_blog(context)
 
             # Save blog content and image to a single .docx file
@@ -1228,6 +1227,8 @@ def chat_with_documents(api_key, files, chunk_size, user_prompt):
 
 # Travel Planning
 from .traveller_planer import TravelPlannerAgent
+
+
 def travel_planning(weather_api_key, geolocation_api_key, openai_api_key, user_prompt):
     # Initialize the travel planner agent with API keys
     travel_agent = TravelPlannerAgent(
@@ -1241,6 +1242,8 @@ def travel_planning(weather_api_key, geolocation_api_key, openai_api_key, user_p
 
 # MCQ generation
 from .mcq import MCQGeneratorAgent
+
+
 def mcq_generator(openai_api_key, user_prompt):
     mcq_agent = MCQGeneratorAgent(openai_api_key)
     # Generate MCQs based on the prompt
@@ -1259,18 +1262,20 @@ def save_file(file):
     return file_path
 
 
-#Interior design agent
+# Interior design agent
 from .interior import InteriorDesignAgent
+
+
 def interior_designer(user_prompt):
     agent = InteriorDesignAgent()
     image_url = agent.generate_design(user_prompt)
     print("Generated Image URL:", image_url)
-    return {"response":image_url}
+    return {"response": image_url}
 
 
-#-----------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
 
-#Dynamic agen creation code
+# Dynamic agen creation code
 
 # Create Agent
 @api_view(['POST'])
@@ -1331,7 +1336,7 @@ def read_dynamic_agent(request, agent_id):
                 "agent_name": agent[1],
                 "agent_goal": agent[2],
                 "agent_description": agent[3],
-                "agent_instruction":agent[4]
+                "agent_instruction": agent[4]
 
             }, status=200)
         return Response({"error": "Agent not found"}, status=404)
@@ -1349,9 +1354,8 @@ def update_dynamic_agent(request, agent_id):
         agent_description = data.get('agent_description')
         agent_instruction = data.get('agent_instruction')
 
-
         # Update agent in the database
-        db.update_dynamic_agent(agent_id, name, agent_goal, agent_description,agent_instruction)
+        db.update_dynamic_agent(agent_id, name, agent_goal, agent_description, agent_instruction)
 
         return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
     except Exception as e:
@@ -1372,6 +1376,8 @@ def delete_dynamic_agent(request, agent_id):
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import logging
+
+
 @api_view(['GET'])
 def read_all_dynamic_agents(request):
     try:
@@ -1389,7 +1395,7 @@ def read_all_dynamic_agents(request):
                 "agent_name": agent[1],
                 "agent_role": agent[2],
                 "agent_description": agent[3],
-                "agent_instruction":agent[4]
+                "agent_instruction": agent[4]
             }
             for agent in agents
         ]
@@ -1402,7 +1408,6 @@ def read_all_dynamic_agents(request):
 
         # Return a user-friendly error message
         return Response({"error": "An error occurred while fetching agents"}, status=500)
-
 
 
 # Main API to create an agent(dynamically)
@@ -1503,8 +1508,103 @@ def create_openai_environment(agent_details, openai_api_key):
         return {"success": False, "error": str(e)}
 
 
-
 # API: Run OpenAI Environment
+# @api_view(['POST'])
+# def run_agent_environment(request):
+#     """
+#     API to interact with a dynamically created OpenAI environment using user-specific queries.
+#     """
+#     try:
+#         print("Received request to run_agent_environment")
+#
+#         # Extract the agent ID and user query from the request
+#         data = request.data
+#         print("Request data:", data)
+#
+#         agent_id = data.get('agent_id')
+#         user_query = data.get('query')
+#
+#         if not agent_id or not user_query:
+#             print("Missing agent_id or query in request")
+#             return Response({"error": "Agent ID and query are required"}, status=400)
+#
+#         print("Fetching agent details for agent_id:", agent_id)
+#         # Retrieve agent details from the database
+#         agent = db.read_agent(agent_id)
+#         if not agent:
+#             print("Agent not found for agent_id:", agent_id)
+#             return Response({"error": "Agent not found"}, status=404)
+#
+#         dyn_agent=agent[7]
+#         dynamic_agent=db.read_dynamic_agent(dyn_agent)
+#
+#         # Extract agent details
+#         agent_details = {
+#             "name": dynamic_agent[1],
+#             "agent_goal": dynamic_agent[2],
+#             "agent_description": dynamic_agent[3],
+#             "agent_instructions":dynamic_agent[4],
+#             "tools":agent[4]
+#         }
+#         print("Agent details:", agent_details)
+#
+#         # Retrieve API key from the environment table
+#         print("Fetching environment details for env_id:", agent[6])
+#         env_details = db.read_environment(agent[6])
+#         if not env_details or not env_details[2]:
+#             print("API key not found in environment table for env_id:", agent_details['env_id'])
+#             return Response({"error": "API key not found in environment table"}, status=500)
+#
+#         openai_api_key = env_details[2]
+#         print("OpenAI API key retrieved successfully")
+#
+#         # Prepare payload for OpenAI API request
+#         url = "https://api.openai.com/v1/chat/completions"
+#         headers = {
+#             "Authorization": f"Bearer {openai_api_key}",
+#             "Content-Type": "application/json"
+#         }
+#         payload = {
+#             "model": "gpt-4o-mini",  # Adjust the model based on your requirements
+#             "messages": [
+#                 {"role": "system", "content": generate_system_prompt(agent_details)},
+#                 {"role": "user", "content": user_query}
+#             ],
+#             "max_tokens": 1500
+#         }
+#         print("Payload prepared for OpenAI API request:", payload)
+#
+#         # Send the query to the OpenAI environment
+#         print("Sending request to OpenAI API...")
+#         response = requests.post(url, headers=headers, json=payload)
+#         print("OpenAI API response status code:", response.status_code)
+#
+#         if response.status_code == 200:
+#             openai_response = response.json()
+#             print("OpenAI API response:", openai_response)
+#
+#             # Extract the 'choices' key from the OpenAI response to get the content
+#             chat_content = openai_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+#             print("Extracted chat content:", chat_content)
+#
+#             return Response({
+#                 "success": True,
+#                 "response": markdown_to_html(chat_content)
+#             }, status=200)
+#         else:
+#             print("Error response from OpenAI API:", response.text)
+#             return Response({
+#                 "success": False,
+#                 "error": response.text
+#             }, status=500)
+#
+#     except Exception as e:
+#         print("Exception occurred:", str(e))
+#         return Response({"error": str(e)}, status=400)
+
+from wyge.agents.prebuilt_agents import GoogleDriveAgent, EmailAgent
+
+
 @api_view(['POST'])
 def run_agent_environment(request):
     """
@@ -1519,6 +1619,8 @@ def run_agent_environment(request):
 
         agent_id = data.get('agent_id')
         user_query = data.get('query')
+        recipient_email = data.get('email')  # Email comes from the frontend
+
 
         if not agent_id or not user_query:
             print("Missing agent_id or query in request")
@@ -1531,16 +1633,16 @@ def run_agent_environment(request):
             print("Agent not found for agent_id:", agent_id)
             return Response({"error": "Agent not found"}, status=404)
 
-        dyn_agent=agent[7]
-        dynamic_agent=db.read_dynamic_agent(dyn_agent)
+        dyn_agent = agent[7]
+        dynamic_agent = db.read_dynamic_agent(dyn_agent)
 
         # Extract agent details
         agent_details = {
             "name": dynamic_agent[1],
             "agent_goal": dynamic_agent[2],
             "agent_description": dynamic_agent[3],
-            "agent_instructions":dynamic_agent[4],
-            "tools":agent[4]
+            "agent_instructions": dynamic_agent[4],
+            "tools": agent[4]
         }
         print("Agent details:", agent_details)
 
@@ -1582,10 +1684,57 @@ def run_agent_environment(request):
             # Extract the 'choices' key from the OpenAI response to get the content
             chat_content = openai_response.get("choices", [{}])[0].get("message", {}).get("content", "")
             print("Extracted chat content:", chat_content)
+            markdown_content = markdown_to_html(chat_content)
+
+            # Create a .docx file for the response
+            file_name = "response.docx"
+            file_path = f"./{file_name}"
+            try:
+                from docx import Document
+                document = Document()
+                document.add_heading("Response Content", level=1)
+                document.add_paragraph(chat_content)
+                document.save(file_path)
+                print(f"{file_name} created successfully.")
+            except Exception as e:
+                return Response({"error": f"Failed to create .docx file: {str(e)}"}, status=500)
+
+            # Handle email or Google Drive based on the provided ID
+            if "send_mail" in agent[4]:
+                # Use EmailAgent to send the .docx file as an attachment
+                print("Using EmailAgent to send email...")
+                email_agent = EmailAgent(api_key=openai_api_key)
+                email_ack = email_agent.send_email(
+                    to_mail=recipient_email,
+                    subject=f"Response from {agent_details['name'] }",
+                    body="Please find the response attached.",
+                    attachments=[file_path],
+                    credentials_json_file_path="credentials.json",
+                    token_json_file_path="token.json"
+                )
+                print("Email sent acknowledgment:", email_ack)
+
+            elif "send_to_drive" in agent[4]:
+                # Use GoogleDriveAgent to upload the .docx file
+                print("Using GoogleDriveAgent to upload file...")
+                drive_agent = GoogleDriveAgent(api_key=openai_api_key)
+                drive_ack = drive_agent.upload(
+                    file_path=file_path,
+                    file_name=file_name,
+                    parent_folder_id="1REXfwxk9dcPdpZXJOFZSur3880soVN9y",
+                    service_account="service_account.json"
+                )
+                print("Google Drive upload acknowledgment:", drive_ack)
+
+            # Cleanup the local .docx file
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"Local file {file_name} deleted successfully.")
 
             return Response({
                 "success": True,
-                "response": chat_content
+                "message": "Response processed successfully.",
+                "content": markdown_content
             }, status=200)
         else:
             print("Error response from OpenAI API:", response.text)
@@ -1597,5 +1746,3 @@ def run_agent_environment(request):
     except Exception as e:
         print("Exception occurred:", str(e))
         return Response({"error": str(e)}, status=400)
-
-#Tools Creation
