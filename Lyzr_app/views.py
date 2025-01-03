@@ -1620,7 +1620,7 @@ def run_agent_environment(request):
         agent_id = data.get('agent_id')
         user_query = data.get('query')
         recipient_email = data.get('email')  # Email comes from the frontend
-
+        authorisation_code = data.get('auth_code')
 
         if not agent_id or not user_query:
             print("Missing agent_id or query in request")
@@ -1706,7 +1706,7 @@ def run_agent_environment(request):
                 email_agent = EmailAgent(api_key=openai_api_key)
                 email_ack = email_agent.send_email(
                     to_mail=recipient_email,
-                    subject=f"Response from {agent_details['name'] }",
+                    subject=f"Response from {agent_details['name']}",
                     body="Please find the response attached.",
                     attachments=[file_path],
                     credentials_json_file_path="credentials.json",
@@ -1714,17 +1714,24 @@ def run_agent_environment(request):
                 )
                 print("Email sent acknowledgment:", email_ack)
 
-            elif "send_to_drive" in agent[4]:
-                # Use GoogleDriveAgent to upload the .docx file
-                print("Using GoogleDriveAgent to upload file...")
-                drive_agent = GoogleDriveAgent(api_key=openai_api_key)
-                drive_ack = drive_agent.upload(
-                    file_path=file_path,
-                    file_name=file_name,
-                    parent_folder_id="1REXfwxk9dcPdpZXJOFZSur3880soVN9y",
-                    service_account="service_account.json"
-                )
-                print("Google Drive upload acknowledgment:", drive_ack)
+            # elif "send_to_drive" in agent[4]:
+            #     # Use GoogleDriveAgent to upload the .docx file
+            #     print("Using GoogleDriveAgent to upload file...")
+            #     drive_agent = GoogleDriveAgent(api_key=openai_api_key)
+            #     drive_ack = drive_agent.upload(
+            #         file_path=file_path,
+            #         file_name=file_name,
+            #         parent_folder_id=parent_folder_id,
+            #         service_account="drive_api_access_key.json"
+            #     )
+            #     print("Google Drive upload acknowledgment:", drive_ack)
+
+            if "send_to_drive" in agent[4]:
+                print("Handling Google Drive upload using user's authorization code...")
+                drive_file_id = upload_to_drive(file_path, authorisation_code)
+                print("sent successfully")
+                if not drive_file_id:
+                    return Response({"error": "Failed to upload file to Google Drive"}, status=500)
 
             # Cleanup the local .docx file
             if os.path.exists(file_path):
@@ -1746,3 +1753,67 @@ def run_agent_environment(request):
     except Exception as e:
         print("Exception occurred:", str(e))
         return Response({"error": str(e)}, status=400)
+
+def upload_to_drive(file_path, authorization_code):
+    try:
+        import os
+        from google_auth_oauthlib.flow import Flow
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaFileUpload
+
+        CLIENT_SECRETS_FILE = "google_credentials.json"
+        REDIRECT_URI = "http://localhost:8000/oauth2callback/"
+
+        # Debug: Print the file path and authorization code
+        print(f"File path: {file_path}")
+        print(f"Authorization code: {authorization_code}")
+
+        if not os.path.exists(CLIENT_SECRETS_FILE):
+            raise FileNotFoundError(f"Client secrets file not found at {CLIENT_SECRETS_FILE}")
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File to upload not found at {file_path}")
+
+        # Exchange the authorization code for access tokens
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=["https://www.googleapis.com/auth/drive.file"],
+            redirect_uri=REDIRECT_URI
+        )
+        flow.fetch_token(code=authorization_code)
+
+        # Debug: Print the credentials information
+        credentials = flow.credentials
+        print(f"Access token: {credentials.token}")
+        print(f"Refresh token: {credentials.refresh_token}")
+
+        drive_service = build('drive', 'v3', credentials=credentials)
+
+        # Debug: Print file metadata being used for upload
+        file_metadata = {
+            'name': os.path.basename(file_path),
+        }
+        print(f"File metadata: {file_metadata}")
+
+        media = MediaFileUpload(
+            file_path,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        print(f"Media upload object created: {media}")
+
+        # Attempt to upload the file
+        drive_file = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
+
+        # Debug: Print the response from the API
+        print(f"Drive API response: {drive_file}")
+
+        print(f"File uploaded successfully to Google Drive with ID: {drive_file.get('id')}")
+        return drive_file.get('id')
+
+    except Exception as e:
+        print(f"Failed to upload file to Google Drive: {str(e)}")
+        return None
