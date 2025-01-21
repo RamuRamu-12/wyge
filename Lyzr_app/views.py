@@ -1,7 +1,7 @@
 # Environment Creation
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import chromadb
 import requests
@@ -142,7 +142,6 @@ import logging
 # Set up logging
 logger = logging.getLogger(__name__)
 
-
 # Create Agent
 @api_view(['POST'])
 def create_agent(request):
@@ -151,7 +150,8 @@ def create_agent(request):
         name = data.get('name')
         system_prompt = data.get('system_prompt')
         agent_description = data.get('agent_description')
-        tools = data.get('tools')
+        backend_id = data.get('backend_id')  # Swapped field order: backend_id now comes before tools
+        tools = data.get('tools')  # Tools used by the agent
         upload_attachment = data.get('upload_attachment', False)  # Default value set to False
         env_id = data.get('env_id')
         dynamic_agent_id = data.get('dynamic_agent_id')  # New field
@@ -161,7 +161,7 @@ def create_agent(request):
 
         # Create the agent in the database
         agent_id = db.create_agent(
-            name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id
+            name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id
         )
 
         return Response({"agent_id": agent_id}, status=201)
@@ -180,12 +180,13 @@ def read_agent(request, agent_id):
                 "name": agent[1],
                 "system_prompt": agent[2],
                 "agent_description": agent[3],
-                "tools": agent[4],
+                "backend_id": agent[4],  # Updated for new field order
+                "tools": agent[5],  # Updated for new field order
                 "Additional_Features": {
-                    "upload_attachment": agent[5],
+                    "upload_attachment": agent[6],
                 },
-                "env_id": agent[6],
-                "dynamic_agent_id": agent[7]  # Include new field
+                "env_id": agent[7],
+                "dynamic_agent_id": agent[8]  # Include new field
             }, status=200)
         return Response({"error": "Agent not found"}, status=404)
     except Exception as e:
@@ -200,14 +201,15 @@ def update_agent(request, agent_id):
         name = data.get('name')
         system_prompt = data.get('system_prompt')
         agent_description = data.get('agent_description')
-        tools = data.get('tools')
+        backend_id = data.get('backend_id')  # Swapped field order: backend_id now comes before tools
+        tools = data.get('tools')  # Tools used by the agent
         upload_attachment = data.get('upload_attachment')
         env_id = data.get('env_id')
         dynamic_agent_id = data.get('dynamic_agent_id')  # Handle new field
 
         # Update agent in the database
         db.update_agent(
-            agent_id, name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id
+            agent_id, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id
         )
 
         return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
@@ -243,12 +245,13 @@ def read_all_agents(request):
                 "name": agent[1],
                 "system_prompt": agent[2],
                 "agent_description": agent[3],
-                "tools": agent[4],
+                "backend_id": agent[4],  # Updated for new field order
+                "tools": agent[5],  # Updated for new field order
                 "Additional_Features": {
-                    "upload_attachment": agent[5],
+                    "upload_attachment": agent[6],
                 },
-                "env_id": agent[6],
-                "dynamic_agent_id": agent[7]  # Include new field
+                "env_id": agent[7],
+                "dynamic_agent_id": agent[8]  # Include new field
             }
             for agent in agents
         ]
@@ -261,7 +264,6 @@ def read_all_agents(request):
 
         # Return a user-friendly error message
         return Response({"error": "An error occurred while fetching agents"}, status=500)
-
 
 # Creation of the openai environment.
 from rest_framework.decorators import api_view
@@ -416,7 +418,7 @@ def run_openai_environment(request):
         agent = db.read_agent(agent_id)
 
         # Retrieve the API key from the environment table using env_id
-        env_details = db.read_environment(agent[6])  # agent[6] is env_id
+        env_details = db.read_environment(agent[7])  # agent[6] is env_id
         openai_api_key = env_details[2]
         model = env_details[3]  # For chat_app
         temperature = env_details[4]  # For chat_app
@@ -992,6 +994,84 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
     for key, value in request.session.items():
         print(f"{key}: {value}")
 
+    # # Select tools and prompt based on operation type
+    # if operation_type == 'text_to_sql':
+    #     print("Going in to the database............")
+    #     tools = [execute_query()]
+    #     print("Fetching from the database.........")
+    #     prompt = reAct_prompt
+    # elif operation_type == 'graph_to_sql':
+    #     tools = [execute_query(), execute_code(), install_library()]
+    #     prompt = plot_prompt
+    # elif operation_type == 'forecast_to_sql':
+    #     tools = [execute_query(), execute_code(), install_library()]
+    #     prompt = forecasting_prompt
+    # else:
+    #     return JsonResponse({"error": "Invalid operation type specified."}, status=400)
+    #
+    # print("--------------------------------------------------")
+    #
+    # llm = ChatOpenAI(memory=True, tools=tools, api_key=openai_api_key)
+    # if 'llm_mem' in request.session:
+    #     llm.chat_memory.memory = request.session['llm_mem']
+    #
+    # agent = Agent(llm, react_prompt=prompt)
+    #
+    # # Retrieve or generate metadata
+    # if 'llm_metadata' not in request.session:
+    #     metadata = get_metadata(HOST, USER, PASSWORD, DATABASE, request.session['processed_tables'])
+    #     request.session['llm_metadata'] = metadata
+    #     print("Initialized new metadata.")
+    # else:
+    #     metadata = request.session['llm_metadata']
+    #     print("Reusing existing metadata.")
+    #
+    # # Prepare command for agent execution
+    # print("Preparing command for the agent:")
+    # print(tools)
+    # command = f"""
+    #     Answer the user query from the database below,also use the provided tools.
+    #     user = '{USER}'
+    #     password = '{PASSWORD}'
+    #     host = '{HOST}'
+    #     database = '{DATABASE}'
+    #     tables related to user are: {request.session['processed_tables']}
+    #     Metadata of the tables: {metadata}
+    #     User query: {user_prompt}
+    # """
+    # print("Command:", command)
+    #
+    # # Execute the command with the agent
+    # try:
+    #     print("----------------------------------------------------------")
+    #     print(datetime.now())
+    #     print(agent.llm.tools)
+    #     print(agent.react_prompt)
+    #     response = agent(command)
+    #     print("----------------------------------------------------------")
+    #     print(datetime.now())
+    #     print("Raw agent response:", response)
+    #     response = response.split('Final Answer:')[-1]
+    # except Exception as e:
+    #     print("Error executing agent command:", str(e))
+    #     return JsonResponse({"error": "Failed to execute command."}, status=500)
+    #
+    # # Fetch any generated images
+    # images = get_images_in_directory(settings.BASE_DIR)
+    #
+    # # Prepare result
+    # result = {"content": response}
+    # if images:
+    #     result["image_path"] = images[0]  # Only add image_path if images are available
+    #
+    # # Update the session with the new memory state
+    # request.session['llm_memory'] = llm.memory  # Store only memory, not the whole instance
+    # request.session['llm_mem'] = remove_tool_entries(remove_non_serializable(llm.chat_memory.get_memory()))
+    # print(request.session['llm_mem'])
+    # print('Updated LLM memory in session:')
+    # print(request.session['llm_memory'])
+    #
+    # return result
     # Select tools and prompt based on operation type
     if operation_type == 'text_to_sql':
         print("Going in to the database............")
@@ -1028,7 +1108,7 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
     print("Preparing command for the agent:")
     print(tools)
     command = f"""
-        Answer the user query from the database below,also use the provided tools.
+        Answer the user query from the database below, also use the provided tools.
         user = '{USER}'
         password = '{PASSWORD}'
         host = '{HOST}'
@@ -1054,13 +1134,21 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
         print("Error executing agent command:", str(e))
         return JsonResponse({"error": "Failed to execute command."}, status=500)
 
-    # Fetch any generated images
-    images = get_images_in_directory(settings.BASE_DIR)
-
-    # Prepare result
-    result = {"content": response}
-    if images:
-        result["image_path"] = images[0]  # Only add image_path if images are available
+    # Fetch any generated images for graph_to_sql case
+    if operation_type == 'graph_to_sql':
+        plot_files = get_plotly_graphs_in_directory(settings.BASE_DIR)  # Utility function to find Plotly-generated HTML files
+        if plot_files:
+            print("Plotly graph found:", plot_files[0])
+            result = {"content": response, "plot_path": plot_files[0]} # Include graph path in the response
+        else:
+            print("No Plotly graphs found.")
+            result = {"content": response}
+    else:
+        # For other operation types, fetch any generated images
+        images = get_images_in_directory(settings.BASE_DIR)
+        result = {"content": response}
+        if images:
+            result["image_path"] = images[0]  # Only add image_path if images are available
 
     # Update the session with the new memory state
     request.session['llm_memory'] = llm.memory  # Store only memory, not the whole instance
@@ -1070,6 +1158,13 @@ def handle_excel_file_based_on_type(request, file, openai_api_key, user_prompt, 
     print(request.session['llm_memory'])
 
     return result
+
+
+import os
+
+def get_plotly_graphs_in_directory(base_dir):
+    """Fetches Plotly-generated HTML files from the given directory."""
+    return [f for f in os.listdir(base_dir) if f.endswith('.html')]
 
 
 def remove_tool_entries(conversation):
@@ -1604,7 +1699,6 @@ def create_openai_environment(agent_details, openai_api_key):
 
 from wyge.agents.prebuilt_agents import GoogleDriveAgent, EmailAgent
 
-
 @api_view(['POST'])
 def run_agent_environment(request):
     """
@@ -1621,6 +1715,7 @@ def run_agent_environment(request):
         user_query = data.get('query')
         recipient_email = data.get('email')  # Email comes from the frontend
         authorisation_code = data.get('auth_code')
+        linkedin_token = data.get('token')
 
         if not agent_id or not user_query:
             print("Missing agent_id or query in request")
@@ -1633,7 +1728,7 @@ def run_agent_environment(request):
             print("Agent not found for agent_id:", agent_id)
             return Response({"error": "Agent not found"}, status=404)
 
-        dyn_agent = agent[7]
+        dyn_agent = agent[8]
         dynamic_agent = db.read_dynamic_agent(dyn_agent)
 
         # Extract agent details
@@ -1642,13 +1737,13 @@ def run_agent_environment(request):
             "agent_goal": dynamic_agent[2],
             "agent_description": dynamic_agent[3],
             "agent_instructions": dynamic_agent[4],
-            "tools": agent[4]
+            "tools": agent[5]
         }
         print("Agent details:", agent_details)
 
         # Retrieve API key from the environment table
-        print("Fetching environment details for env_id:", agent[6])
-        env_details = db.read_environment(agent[6])
+        print("Fetching environment details for env_id:", agent[7])
+        env_details = db.read_environment(agent[7])
         if not env_details or not env_details[2]:
             print("API key not found in environment table for env_id:", agent_details['env_id'])
             return Response({"error": "API key not found in environment table"}, status=500)
@@ -1686,6 +1781,15 @@ def run_agent_environment(request):
             print("Extracted chat content:", chat_content)
             markdown_content = markdown_to_html(chat_content)
 
+            # Check if any tools are specified in the agent
+            if not agent[5]:  # No tools specified
+                print("No tools specified. Returning OpenAI response directly.")
+                return Response({
+                    "success": True,
+                    "message": "Response processed successfully.",
+                    "content": markdown_content
+                }, status=200)
+
             # Create a .docx file for the response
             file_name = "response.docx"
             file_path = f"./{file_name}"
@@ -1699,9 +1803,8 @@ def run_agent_environment(request):
             except Exception as e:
                 return Response({"error": f"Failed to create .docx file: {str(e)}"}, status=500)
 
-            # Handle email or Google Drive based on the provided ID
-            if "send_mail" in agent[4]:
-                # Use EmailAgent to send the .docx file as an attachment
+            # Handle tools if specified
+            if "send_mail" in agent[5]:
                 print("Using EmailAgent to send email...")
                 email_agent = EmailAgent(api_key=openai_api_key)
                 email_ack = email_agent.send_email(
@@ -1714,24 +1817,38 @@ def run_agent_environment(request):
                 )
                 print("Email sent acknowledgment:", email_ack)
 
-            # elif "send_to_drive" in agent[4]:
-            #     # Use GoogleDriveAgent to upload the .docx file
-            #     print("Using GoogleDriveAgent to upload file...")
-            #     drive_agent = GoogleDriveAgent(api_key=openai_api_key)
-            #     drive_ack = drive_agent.upload(
-            #         file_path=file_path,
-            #         file_name=file_name,
-            #         parent_folder_id=parent_folder_id,
-            #         service_account="drive_api_access_key.json"
-            #     )
-            #     print("Google Drive upload acknowledgment:", drive_ack)
-
-            if "send_to_drive" in agent[4]:
+            elif "send_to_drive" in agent[5]:
                 print("Handling Google Drive upload using user's authorization code...")
                 drive_file_id = upload_to_drive(file_path, authorisation_code)
-                print("sent successfully")
                 if not drive_file_id:
                     return Response({"error": "Failed to upload file to Google Drive"}, status=500)
+
+            elif "linkedin_post" in agent[5]:
+                print("Handling LinkedIn post...")
+                linkedin_agent = LinkedInAgent(api_key=openai_api_key)
+                linkedin_ack = linkedin_agent.post_content_on_linkedin(linkedin_token, markdown_content)
+                print("LinkedIn post acknowledgment:", linkedin_ack)
+
+            elif "google_calendar" in agent[5]:
+                print("Handling Google Calendar scheduling...")
+                event_details = {
+                    'summary': f"Event from {agent_details['name']}",
+                    'location': "Online",
+                    'description': chat_content,
+                    'time_zone': 'Asia/Kolkata',
+                    'start_time': datetime.utcnow() + timedelta(hours=1),
+                    'end_time': datetime.utcnow() + timedelta(hours=3)
+                }
+                calendar_event_link = create_google_calendar_event(event_details, authorisation_code)
+                if not calendar_event_link:
+                    return Response({"error": "Failed to create Google Calendar event"}, status=500)
+                print(f"Google Calendar event created: {calendar_event_link}")
+
+            if "github" in agent[5]:
+                print("Handling GitHub repository access...")
+                repositories = list_github_repositories(authorisation_code)
+                if not repositories:
+                    return Response({"error": "Failed to fetch GitHub repositories"}, status=500)
 
             # Cleanup the local .docx file
             if os.path.exists(file_path):
@@ -1753,6 +1870,7 @@ def run_agent_environment(request):
     except Exception as e:
         print("Exception occurred:", str(e))
         return Response({"error": str(e)}, status=400)
+
 
 def upload_to_drive(file_path, authorization_code):
     try:
@@ -1817,3 +1935,134 @@ def upload_to_drive(file_path, authorization_code):
     except Exception as e:
         print(f"Failed to upload file to Google Drive: {str(e)}")
         return None
+
+
+def create_google_calendar_event(event_details, authorization_code):
+    try:
+        import os
+        from google_auth_oauthlib.flow import Flow
+        from googleapiclient.discovery import build
+
+        CLIENT_SECRETS_FILE = "google_credentials.json"
+        REDIRECT_URI = "http://localhost:8000/oauth2callback/"
+        SCOPES = ['https://www.googleapis.com/auth/calendar']
+
+        # Debug: Print event details and authorization code
+        print(f"Event details: {event_details}")
+        print(f"Authorization code: {authorization_code}")
+
+        if not os.path.exists(CLIENT_SECRETS_FILE):
+            raise FileNotFoundError(f"Client secrets file not found at {CLIENT_SECRETS_FILE}")
+
+        # Exchange the authorization code for access tokens
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
+        flow.fetch_token(code=authorization_code)
+
+        # Debug: Print the credentials information
+        credentials = flow.credentials
+        print(f"Access token: {credentials.token}")
+        print(f"Refresh token: {credentials.refresh_token}")
+
+        # Build the Google Calendar service
+        service = build('calendar', 'v3', credentials=credentials)
+
+        # Ensure that start and end time are included in the event details
+        event_start_time = event_details.get('start_time', datetime.utcnow())
+        event_end_time = event_details.get('end_time', event_start_time + timedelta(hours=1))  # Default to 1-hour event
+
+        # Format the times in ISO 8601 format
+        start_time_iso = event_start_time.isoformat() + 'Z'
+        end_time_iso = event_end_time.isoformat() + 'Z'
+
+        # Construct the event body
+        event = {
+            'summary': event_details.get('summary', 'No Title'),
+            'location': event_details.get('location', ''),
+            'description': event_details.get('description', ''),
+            'start': {'dateTime': start_time_iso, 'timeZone': 'UTC'},
+            'end': {'dateTime': end_time_iso, 'timeZone': 'UTC'},
+            #'attendees': [{'email': email} for email in event_details.get('attendees', [])],
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'email', 'minutes': 24 * 60},
+                    {'method': 'popup', 'minutes': 10},
+                ],
+            },
+        }
+
+        # Create the event
+        created_event = service.events().insert(calendarId='primary', body=event).execute()
+
+        # Debug: Print the created event response
+        print(f"Event created successfully: {created_event['htmlLink']}")
+        return created_event['htmlLink']
+
+    except Exception as e:
+        print(f"Failed to create Google Calendar event: {str(e)}")
+        return None
+
+
+def list_github_repositories(authorization_code):
+    try:
+        import requests
+
+        CLIENT_ID = os.getenv("CLIENT_ID")  # Replace with your GitHub OAuth app client ID
+        CLIENT_SECRET = os.getenv("CLIENT_SECRET") # Replace with your GitHub OAuth app client secret
+        REDIRECT_URI = "http://localhost:8000/oauth2callback/"
+        GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
+        GITHUB_API_URL = "https://api.github.com"
+
+        # Debug: Print authorization code
+        print(f"Authorization code: {authorization_code}")
+
+        # Exchange the authorization code for an access token
+        token_response = requests.post(
+            GITHUB_TOKEN_URL,
+            headers={"Accept": "application/json"},
+            data={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "code": authorization_code,
+                "redirect_uri": REDIRECT_URI,
+            },
+        )
+        if token_response.status_code != 200:
+            raise Exception(f"Failed to fetch access token: {token_response.json()}")
+
+        token_data = token_response.json()
+        access_token = token_data.get("access_token")
+
+        # Debug: Print access token
+        print(f"Access token: {access_token}")
+
+        if not access_token:
+            raise Exception("Access token is missing in the response.")
+
+        # Use the access token to make authenticated requests to the GitHub API
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Fetch the list of repositories for the authenticated user
+        response = requests.get(f"{GITHUB_API_URL}/user/repos", headers=headers)
+
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch repositories: {response.json()}")
+
+        repos = response.json()
+
+        # Debug: Print the list of repositories
+        print("Repositories fetched successfully:")
+        for repo in repos:
+            print(f"- {repo['name']} (URL: {repo['html_url']})")
+
+        # Return the list of repository names and URLs
+        return [{"name": repo["name"], "url": repo["html_url"]} for repo in repos]
+
+    except Exception as e:
+        print(f"Failed to fetch GitHub repositories: {str(e)}")
+        return None
+
