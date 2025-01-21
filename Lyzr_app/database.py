@@ -164,6 +164,7 @@ class PostgreSQLDB:
 
     #Agents table
     # Create agents table linked with environments, including 'tools' column
+    # Updated Code with Swapped Positions for 'backend_id' and 'tools'
     def create_agents_table(self):
         try:
             conn = self.connect()
@@ -175,6 +176,7 @@ class PostgreSQLDB:
                     name VARCHAR(100) NOT NULL,
                     system_prompt TEXT,
                     agent_description TEXT,
+                    backend_id TEXT,  -- Swapped: backend_id now comes before tools
                     tools TEXT,  -- Tools used by the agent
                     upload_attachment BOOLEAN DEFAULT FALSE,  
                     env_id INT REFERENCES environment(id) ON DELETE CASCADE,
@@ -189,7 +191,6 @@ class PostgreSQLDB:
         except Exception as e:
             print(f"Error creating agents table: {e}")
 
-    # Drop agents table
     def drop_agents_table(self):
         try:
             conn = self.connect()
@@ -204,20 +205,22 @@ class PostgreSQLDB:
         except Exception as e:
             print(f"Error deleting agents table: {e}")
 
-    # Insert a new agent, including 'tools' and 'dynamic_agent_id'
-    def create_agent(self, name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id):
+    def create_agent(self, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id,
+                     dynamic_agent_id):
         try:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
                 INSERT INTO ai_all_agents 
-                (name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id;
                 """
                 cursor.execute(query, (
-                name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id))
+                    name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id,
+                    dynamic_agent_id
+                ))
                 agent_id = cursor.fetchone()[0]  # Expecting a single row with the new agent ID
                 conn.commit()
                 cursor.close()
@@ -227,7 +230,6 @@ class PostgreSQLDB:
             print(f"Error creating agent: {e}")
             return None
 
-    # Read agent by ID
     def read_agent(self, agent_id):
         try:
             conn = self.connect()
@@ -243,9 +245,8 @@ class PostgreSQLDB:
             print(f"Error reading agent: {e}")
             return None
 
-    # Update agent, including 'tools' and 'dynamic_agent_id'
-    def update_agent(self, agent_id, name=None, system_prompt=None, agent_description=None, tools=None,
-                     upload_attachment=None, env_id=None, dynamic_agent_id=None):
+    def update_agent(self, agent_id, name=None, system_prompt=None, agent_description=None, backend_id=None,
+                     tools=None, upload_attachment=None, env_id=None, dynamic_agent_id=None):
         try:
             conn = self.connect()
             if conn is not None:
@@ -255,6 +256,7 @@ class PostgreSQLDB:
                 SET name = COALESCE(%s, name),
                     system_prompt = COALESCE(%s, system_prompt),
                     agent_description = COALESCE(%s, agent_description),
+                    backend_id = COALESCE(%s, backend_id),
                     tools = COALESCE(%s, tools),
                     upload_attachment = COALESCE(%s, upload_attachment),
                     env_id = COALESCE(%s, env_id),
@@ -262,7 +264,8 @@ class PostgreSQLDB:
                 WHERE id = %s;
                 """
                 cursor.execute(query, (
-                    name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id, agent_id
+                    name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id,
+                    dynamic_agent_id, agent_id
                 ))
                 conn.commit()
                 cursor.close()
@@ -271,7 +274,6 @@ class PostgreSQLDB:
         except Exception as e:
             print(f"Error updating agent: {e}")
 
-    # Delete agent by ID
     def delete_agent(self, agent_id):
         try:
             conn = self.connect()
@@ -286,14 +288,13 @@ class PostgreSQLDB:
         except Exception as e:
             print(f"Error deleting agent: {e}")
 
-    # Get all agents, including 'tools' and 'dynamic_agent_id'
     def get_all_agents(self):
         try:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                SELECT id, name, system_prompt, agent_description, tools, upload_attachment, env_id, dynamic_agent_id
+                SELECT id, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id
                 FROM ai_all_agents;
                 """
                 cursor.execute(query)
@@ -304,7 +305,6 @@ class PostgreSQLDB:
         except Exception as e:
             print(f"Error retrieving agents: {e}")
             return None
-
 
     #  Dynamic Agents table
     def create_dynamic_agents_table(self):
@@ -442,8 +442,8 @@ class PostgreSQLDB:
 if __name__ == "__main__":
     db = PostgreSQLDB(dbname='test', user='test_owner', password='tcWI7unQ6REA')
     db.table_creation()
-    db.create_agents_table()
     db.create_dynamic_agents_table()
+    db.create_agents_table()
     #db.read_environment(1)
     # db.table_deletion()
     # db.drop_agents_table()
