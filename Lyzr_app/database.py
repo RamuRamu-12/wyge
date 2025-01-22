@@ -35,7 +35,8 @@ class PostgreSQLDB:
                     name VARCHAR(255) NOT NULL,
                     api_key TEXT NOT NULL,
                     model VARCHAR(100) NOT NULL,
-                    temperature NUMERIC(3, 2) DEFAULT 0.5
+                    temperature NUMERIC(3, 2) DEFAULT 0.5,
+                    email VARCHAR(255) NOT NULL
                 );
                 """
                 cursor.execute(query)
@@ -60,17 +61,17 @@ class PostgreSQLDB:
             print(f"Error deleting environment table: {e}")
 
     # Create Environment without top_p and model_vendor
-    def create_environment(self, name, api_key, model, temperature=0.5):
+    def create_environment(self, name, api_key, model, temperature=0.5, email=None):
         try:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                INSERT INTO environment (name, api_key, model, temperature)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO environment (name, api_key, model, temperature, email)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id;
                 """
-                cursor.execute(query, (name, api_key, model, temperature))
+                cursor.execute(query, (name, api_key, model, temperature, email))
                 environment_id = cursor.fetchone()[0]
                 conn.commit()
                 cursor.close()
@@ -102,8 +103,8 @@ class PostgreSQLDB:
             print(f"Error reading environment: {e}")
             return None
 
-    # Update environment without top_p and model_vendor
-    def update_environment(self, environment_id, name=None, api_key=None, model=None, temperature=None):
+    # Update environment with email field
+    def update_environment(self, environment_id, name=None, api_key=None, model=None, temperature=None, email=None):
         try:
             conn = self.connect()
             if conn is not None:
@@ -113,16 +114,40 @@ class PostgreSQLDB:
                 SET name = COALESCE(%s, name),
                     api_key = COALESCE(%s, api_key),
                     model = COALESCE(%s, model),
-                    temperature = COALESCE(%s, temperature)
+                    temperature = COALESCE(%s, temperature),
+                    email = COALESCE(%s, email)
                 WHERE id = %s;
                 """
-                cursor.execute(query, (name, api_key, model, temperature, environment_id))
+                cursor.execute(query, (name, api_key, model, temperature, email, environment_id))
                 conn.commit()
                 cursor.close()
                 conn.close()
                 print(f"Environment with ID {environment_id} updated.")
         except Exception as e:
             print(f"Error updating environment: {e}")
+
+    # Read all environments with email field
+    def read_all_environments(self):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = "SELECT * FROM environment;"
+                cursor.execute(query)
+                environments = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                if environments:
+                    for environment in environments:
+                        print(
+                            f"ID: {environment[0]}, Name: {environment[1]}, Model: {environment[3]}, Temperature: {environment[4]}, Email: {environment[5]}")
+                    return environments
+                else:
+                    print("No environments found.")
+                    return None
+        except Exception as e:
+            print(f"Error reading all environments: {e}")
+            return None
 
     # Delete environment by ID
     def delete_environment(self, environment_id):
@@ -139,28 +164,22 @@ class PostgreSQLDB:
         except Exception as e:
             print(f"Error deleting environment: {e}")
 
-    # Read all environments without top_p and model_vendor
-    def read_all_environments(self):
+    def get_environments_by_email(self, email):
         try:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
-                query = "SELECT * FROM environment;"
-                cursor.execute(query)
+                query = "SELECT * FROM environment WHERE email = %s;"
+                cursor.execute(query, (email,))
                 environments = cursor.fetchall()
                 cursor.close()
                 conn.close()
-                if environments:
-                    for environment in environments:
-                        print(
-                            f"ID: {environment[0]}, Name: {environment[1]}, Model: {environment[3]}, Temperature: {environment[4]}")
-                    return environments
-                else:
-                    print("No environments found.")
-                    return None
+                return environments
         except Exception as e:
-            print(f"Error reading all environments: {e}")
+            print(f"Error fetching environments by email: {e}")
             return None
+
+
 
     #Agents table
     # Create agents table linked with environments, including 'tools' column
@@ -180,7 +199,8 @@ class PostgreSQLDB:
                     tools TEXT,  -- Tools used by the agent
                     upload_attachment BOOLEAN DEFAULT FALSE,  
                     env_id INT REFERENCES environment(id) ON DELETE CASCADE,
-                    dynamic_agent_id INT REFERENCES dynamic_ai_agents(id) ON DELETE CASCADE
+                    dynamic_agent_id INT REFERENCES dynamic_ai_agents(id) ON DELETE CASCADE,
+                    email VARCHAR(255)  -- Added email as the last column
                 );
                 """
                 cursor.execute(query)
@@ -206,20 +226,20 @@ class PostgreSQLDB:
             print(f"Error deleting agents table: {e}")
 
     def create_agent(self, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id,
-                     dynamic_agent_id):
+                     dynamic_agent_id, email):
         try:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
                 INSERT INTO ai_all_agents 
-                (name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id, email)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id;
                 """
                 cursor.execute(query, (
                     name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id,
-                    dynamic_agent_id
+                    dynamic_agent_id, email
                 ))
                 agent_id = cursor.fetchone()[0]  # Expecting a single row with the new agent ID
                 conn.commit()
@@ -246,7 +266,7 @@ class PostgreSQLDB:
             return None
 
     def update_agent(self, agent_id, name=None, system_prompt=None, agent_description=None, backend_id=None,
-                     tools=None, upload_attachment=None, env_id=None, dynamic_agent_id=None):
+                     tools=None, upload_attachment=None, env_id=None, dynamic_agent_id=None, email=None):
         try:
             conn = self.connect()
             if conn is not None:
@@ -260,12 +280,13 @@ class PostgreSQLDB:
                     tools = COALESCE(%s, tools),
                     upload_attachment = COALESCE(%s, upload_attachment),
                     env_id = COALESCE(%s, env_id),
-                    dynamic_agent_id = COALESCE(%s, dynamic_agent_id)
+                    dynamic_agent_id = COALESCE(%s, dynamic_agent_id),
+                    email = COALESCE(%s, email)
                 WHERE id = %s;
                 """
                 cursor.execute(query, (
                     name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id,
-                    dynamic_agent_id, agent_id
+                    dynamic_agent_id, email, agent_id
                 ))
                 conn.commit()
                 cursor.close()
@@ -294,7 +315,7 @@ class PostgreSQLDB:
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                SELECT id, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id
+                SELECT id, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id, email
                 FROM ai_all_agents;
                 """
                 cursor.execute(query)
@@ -304,6 +325,21 @@ class PostgreSQLDB:
                 return agents
         except Exception as e:
             print(f"Error retrieving agents: {e}")
+            return None
+
+    def get_agents_by_email(self, email):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = "SELECT * FROM ai_all_agents WHERE email = %s;"
+                cursor.execute(query, (email,))
+                agents = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                return agents
+        except Exception as e:
+            print(f"Error fetching agents by email: {e}")
             return None
 
     #  Dynamic Agents table
@@ -318,7 +354,8 @@ class PostgreSQLDB:
                     agent_name VARCHAR(100) NOT NULL,
                     agent_goal TEXT,
                     agent_description TEXT,
-                    agent_instruction TEXT
+                    agent_instruction TEXT,
+                    email VARCHAR(255)  -- Added email as the last column
                 );
                 """
                 cursor.execute(query)
@@ -345,17 +382,17 @@ class PostgreSQLDB:
             print(f"Error deleting agents table: {e}")
 
     # Insert a new agent
-    def create_dynamic_agent(self, agent_name, agent_goal, agent_description, agent_instruction):
+    def create_dynamic_agent(self, agent_name, agent_goal, agent_description, agent_instruction, email):
         try:
             conn = self.connect()
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                INSERT INTO dynamic_ai_agents (agent_name, agent_goal, agent_description, agent_instruction)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO dynamic_ai_agents (agent_name, agent_goal, agent_description, agent_instruction, email)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id;
                 """
-                cursor.execute(query, (agent_name, agent_goal, agent_description, agent_instruction))
+                cursor.execute(query, (agent_name, agent_goal, agent_description, agent_instruction, email))
                 agent_id = cursor.fetchone()[0]  # Expecting a single row with the new agent ID
                 conn.commit()
                 cursor.close()
@@ -383,7 +420,7 @@ class PostgreSQLDB:
 
     # Update agent by ID
     def update_dynamic_agent(self, agent_id, agent_name=None, agent_goal=None, agent_description=None,
-                             agent_instruction=None):
+                             agent_instruction=None, email=None):
         try:
             conn = self.connect()
             if conn is not None:
@@ -393,11 +430,12 @@ class PostgreSQLDB:
                 SET agent_name = COALESCE(%s, agent_name),
                     agent_goal = COALESCE(%s, agent_goal),
                     agent_description = COALESCE(%s, agent_description),
-                    agent_instruction = COALESCE(%s, agent_instruction)
+                    agent_instruction = COALESCE(%s, agent_instruction),
+                    email = COALESCE(%s, email)
                 WHERE id = %s;
                 """
                 cursor.execute(query, (
-                    agent_name, agent_goal, agent_description, agent_instruction, agent_id))
+                    agent_name, agent_goal, agent_description, agent_instruction, email, agent_id))
                 conn.commit()
                 cursor.close()
                 conn.close()
@@ -427,7 +465,7 @@ class PostgreSQLDB:
             if conn is not None:
                 cursor = conn.cursor()
                 query = """
-                SELECT id, agent_name, agent_goal, agent_description, agent_instruction
+                SELECT id, agent_name, agent_goal, agent_description, agent_instruction, email
                 FROM dynamic_ai_agents;
                 """
                 cursor.execute(query)
@@ -437,6 +475,21 @@ class PostgreSQLDB:
                 return agents
         except Exception as e:
             print(f"Error retrieving agents: {e}")
+            return None
+
+    def get_dynamic_agents_by_email(self, email):
+        try:
+            conn = self.connect()
+            if conn is not None:
+                cursor = conn.cursor()
+                query = "SELECT * FROM dynamic_ai_agents WHERE email = %s;"
+                cursor.execute(query, (email,))
+                dynamic_agents = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                return dynamic_agents
+        except Exception as e:
+            print(f"Error fetching dynamic agents by email: {e}")
             return None
 
 if __name__ == "__main__":
