@@ -27,19 +27,17 @@ def create_environment(request):
     try:
         data = request.data
         name = data.get('name')
-        # model_vendor = data.get('model_vendor')
         api_key = data.get('api_key')
         model = data.get('model')
         temperature = data.get('temperature', 0.5)
-        # top_p = data.get('top_p', 0.9)
+        email = data.get('email')  # New email field
 
-        environment_id = db.create_environment(name, api_key, model, temperature)
+        environment_id = db.create_environment(name, api_key, model, temperature, email)
         return Response({"environment_id": environment_id}, status=201)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
 
-# Read environment by ID
 # Read environment by ID
 @api_view(['GET'])
 def read_environment(request, environment_id):
@@ -47,23 +45,19 @@ def read_environment(request, environment_id):
         environment = db.read_environment(environment_id)
         if environment:
             response_data = {
-
                 "features": [],  # Assuming no features are provided, keeping it empty
                 "llm_config": {
-                    # "provider": environment[2],  # model_vendor
                     "model": environment[3],  # model
                     "config": {
                         "temperature": environment[4],  # temperature
-                        # "top_p": environment[6],  # top_p
                     }
                 },
                 "env": {
                     "Environment_name": environment[1],  # name
                     "OPENAI_API_KEY": environment[2],  # API_KEY
+                    "email": environment[5],  # New email field
                 },
-
             }
-
             return Response(response_data, status=200)
 
         return Response({"error": "Environment not found"}, status=404)
@@ -77,24 +71,23 @@ def update_environment(request, environment_id):
     try:
         data = request.data
         name = data.get('name')
-        # model_vendor = data.get('model_vendor')
         api_key = data.get('api_key')
         model = data.get('model')
         temperature = data.get('temperature')
-        # top_p = data.get('top_p')
+        email = data.get('email')  # New email field
 
         updated_rows = db.update_environment(
             environment_id,
             name,
             api_key,
             model,
-            temperature
-
+            temperature,
+            email  # Pass email to the update function
         )
 
         if updated_rows:
             return Response({"message": f"Environment with ID {environment_id} updated successfully."}, status=200)
-        return Response({"message": f"Environment with ID {environment_id} updated successfully."}, status=200)
+        return Response({"message": f"Environment with ID {environment_id} not updated."}, status=400)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
@@ -122,17 +115,54 @@ def read_all_environments(request):
                 environment_list.append({
                     "id": environment[0],
                     "name": environment[1],
-                    # "model_vendor": environment[2],
                     "api_key": environment[2],
                     "model": environment[3],
                     "temperature": environment[4],
-                    # "top_p": environment[6],
-
+                    "email": environment[5],  # New email field
                 })
             return Response(environment_list, status=200)
         return Response({"message": "No environments found."}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+
+@api_view(['POST'])
+def get_all_environments_by_email(request):
+    """
+    Fetch all environments associated with the given email.
+    """
+    try:
+        email = request.POST.get('email')  # Extract email from query parameters
+        if not email:
+            return Response({"error": "Email is required."}, status=400)
+
+        # Fetch environments from the database
+        environments = db.get_environments_by_email(email)
+
+        # Check if environments are found
+        if not environments:
+            return Response({"message": "No environments found."}, status=404)
+
+        # Structure the environments' data for JSON response
+        environments_data = [
+            {
+                "id": env[0],
+                "name": env[1],
+                "api_key": env[2],
+                "model": env[3],
+                "temperature": env[4],
+                "email": env[5]  # Include email in the response
+            }
+            for env in environments
+        ]
+
+        return Response({"environments": environments_data}, status=200)
+
+    except Exception as e:
+        # Log the error for further investigation
+        logger.error(f"Error fetching environments: {str(e)}")
+        return Response({"error": "An error occurred while fetching environments."}, status=500)
+
 
 
 from rest_framework.decorators import api_view
@@ -155,13 +185,14 @@ def create_agent(request):
         upload_attachment = data.get('upload_attachment', False)  # Default value set to False
         env_id = data.get('env_id')
         dynamic_agent_id = data.get('dynamic_agent_id')  # New field
+        email = data.get('email')  # Added email field
 
         if not env_id:
             return Response({"error": "Environment ID is required"}, status=400)
 
         # Create the agent in the database
         agent_id = db.create_agent(
-            name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id
+            name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id, email
         )
 
         return Response({"agent_id": agent_id}, status=201)
@@ -186,7 +217,8 @@ def read_agent(request, agent_id):
                     "upload_attachment": agent[6],
                 },
                 "env_id": agent[7],
-                "dynamic_agent_id": agent[8]  # Include new field
+                "dynamic_agent_id": agent[8],  # Include new field
+                "email": agent[9]  # Include email field
             }, status=200)
         return Response({"error": "Agent not found"}, status=404)
     except Exception as e:
@@ -206,10 +238,11 @@ def update_agent(request, agent_id):
         upload_attachment = data.get('upload_attachment')
         env_id = data.get('env_id')
         dynamic_agent_id = data.get('dynamic_agent_id')  # Handle new field
+        email = data.get('email')  # Added email field
 
         # Update agent in the database
         db.update_agent(
-            agent_id, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id
+            agent_id, name, system_prompt, agent_description, backend_id, tools, upload_attachment, env_id, dynamic_agent_id, email
         )
 
         return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
@@ -251,7 +284,8 @@ def read_all_agents(request):
                     "upload_attachment": agent[6],
                 },
                 "env_id": agent[7],
-                "dynamic_agent_id": agent[8]  # Include new field
+                "dynamic_agent_id": agent[8],  # Include new field
+                "email": agent[9]  # Include email field
             }
             for agent in agents
         ]
@@ -264,6 +298,50 @@ def read_all_agents(request):
 
         # Return a user-friendly error message
         return Response({"error": "An error occurred while fetching agents"}, status=500)
+
+
+@api_view(['POST'])
+def get_all_agents_by_email(request):
+    """
+    Fetch all agents associated with the given email.
+    """
+    try:
+        email = request.POST.get('email')  # Extract email from query parameters
+        if not email:
+            return Response({"error": "Email is required."}, status=400)
+
+        # Fetch agents from the database
+        agents = db.get_agents_by_email(email)
+
+        # Check if agents are found
+        if not agents:
+            return Response({"message": "No agents found."}, status=404)
+
+        # Structure the agents' data for JSON response
+        agents_data = [
+            {
+                "id": agent[0],
+                "name": agent[1],
+                "system_prompt": agent[2],
+                "agent_description": agent[3],
+                "backend_id": agent[4],
+                "tools": agent[5],
+                "upload_attachment": agent[6],
+                "env_id": agent[7],
+                "dynamic_agent_id": agent[8],
+                "email": agent[9]  # Include email in the response
+            }
+            for agent in agents
+        ]
+
+        return Response({"agents": agents_data}, status=200)
+
+    except Exception as e:
+        # Log the error for further investigation
+        logger.error(f"Error fetching agents: {str(e)}")
+        return Response({"error": "An error occurred while fetching agents."}, status=500)
+
+
 
 # Creation of the openai environment.
 from rest_framework.decorators import api_view
@@ -1372,7 +1450,7 @@ def interior_designer(user_prompt):
 
 # Dynamic agen creation code
 
-# Create Agent
+# Create Dynamic Agent
 @api_view(['POST'])
 def create_dynamic_agent(request):
     """
@@ -1385,13 +1463,14 @@ def create_dynamic_agent(request):
         agent_goal = data.get('agent_goal')  # Change from 'agent_role' to 'agent_goal'
         agent_description = data.get('agent_description')
         agent_instruction = data.get('agent_instruction')
+        email = data.get('email')  # Added email field
 
         # Ensure required fields are provided
-        if not name or not agent_goal or not agent_description:
-            return Response({"error": "Agent name, goal, and description are required."}, status=400)
+        if not name or not agent_goal or not agent_description or not email:
+            return Response({"error": "Agent name, goal, description, and email are required."}, status=400)
 
         # Step 1: Create the agent in the database
-        agent_id = db.create_dynamic_agent(name, agent_goal, agent_description, agent_instruction)
+        agent_id = db.create_dynamic_agent(name, agent_goal, agent_description, agent_instruction, email)
         if not agent_id:
             return Response({"error": "Failed to create agent in the database."}, status=500)
 
@@ -1406,7 +1485,8 @@ def create_dynamic_agent(request):
             "agent_name": agent[1],
             "agent_goal": agent[2],
             "agent_description": agent[3],
-            "agent_instruction": agent[4]
+            "agent_instruction": agent[4],
+            "email": agent[5]  # Include email in the response
         }
 
         # Step 3: Return success response with agent details
@@ -1420,7 +1500,7 @@ def create_dynamic_agent(request):
         return Response({"error": f"Internal error: {str(e)}"}, status=400)
 
 
-# Read Agent by ID
+# Read Dynamic Agent by ID
 @api_view(['GET'])
 def read_dynamic_agent(request, agent_id):
     try:
@@ -1431,15 +1511,15 @@ def read_dynamic_agent(request, agent_id):
                 "agent_name": agent[1],
                 "agent_goal": agent[2],
                 "agent_description": agent[3],
-                "agent_instruction": agent[4]
-
+                "agent_instruction": agent[4],
+                "email": agent[5]  # Include email in the response
             }, status=200)
         return Response({"error": "Agent not found"}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
 
-# Update Agent by ID
+# Update Dynamic Agent by ID
 @api_view(['POST'])
 def update_dynamic_agent(request, agent_id):
     try:
@@ -1448,16 +1528,17 @@ def update_dynamic_agent(request, agent_id):
         agent_goal = data.get('agent_goal')
         agent_description = data.get('agent_description')
         agent_instruction = data.get('agent_instruction')
+        email = data.get('email')  # Added email field
 
         # Update agent in the database
-        db.update_dynamic_agent(agent_id, name, agent_goal, agent_description, agent_instruction)
+        db.update_dynamic_agent(agent_id, name, agent_goal, agent_description, agent_instruction, email)
 
         return Response({"message": f"Agent with ID {agent_id} updated successfully."}, status=200)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
 
-# Delete Agent by ID
+# Delete Dynamic Agent by ID
 @api_view(['GET'])
 def delete_dynamic_agent(request, agent_id):
     try:
@@ -1467,12 +1548,46 @@ def delete_dynamic_agent(request, agent_id):
         return Response({"error": str(e)}, status=400)
 
 
-# Read all Agents
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-import logging
+@api_view(['POST'])
+def get_all_dynamic_agents_by_email(request):
+    """
+    Fetch all dynamic agents associated with the given email.
+    """
+    try:
+        email = request.POST.get('email')  # Extract email from query parameters
+        if not email:
+            return Response({"error": "Email is required."}, status=400)
+
+        # Fetch dynamic agents from the database
+        dynamic_agents = db.get_dynamic_agents_by_email(email)
+
+        # Check if dynamic agents are found
+        if not dynamic_agents:
+            return Response({"message": "No dynamic agents found."}, status=404)
+
+        # Structure the dynamic agents' data for JSON response
+        dynamic_agents_data = [
+            {
+                "id": d_agent[0],
+                "agent_name": d_agent[1],
+                "agent_goal": d_agent[2],
+                "agent_description": d_agent[3],
+                "agent_instruction": d_agent[4],
+                "email": d_agent[5]  # Include email in the response
+            }
+            for d_agent in dynamic_agents
+        ]
+
+        return Response({"dynamic_agents": dynamic_agents_data}, status=200)
+
+    except Exception as e:
+        # Log the error for further investigation
+        logger.error(f"Error fetching dynamic agents: {str(e)}")
+        return Response({"error": "An error occurred while fetching dynamic agents."}, status=500)
 
 
+
+# Read All Dynamic Agents
 @api_view(['GET'])
 def read_all_dynamic_agents(request):
     try:
@@ -1488,9 +1603,10 @@ def read_all_dynamic_agents(request):
             {
                 "id": agent[0],
                 "agent_name": agent[1],
-                "agent_role": agent[2],
+                "agent_goal": agent[2],
                 "agent_description": agent[3],
-                "agent_instruction": agent[4]
+                "agent_instruction": agent[4],
+                "email": agent[5]  # Include email in the response
             }
             for agent in agents
         ]
@@ -1602,100 +1718,6 @@ def create_openai_environment(agent_details, openai_api_key):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-
-# API: Run OpenAI Environment
-# @api_view(['POST'])
-# def run_agent_environment(request):
-#     """
-#     API to interact with a dynamically created OpenAI environment using user-specific queries.
-#     """
-#     try:
-#         print("Received request to run_agent_environment")
-#
-#         # Extract the agent ID and user query from the request
-#         data = request.data
-#         print("Request data:", data)
-#
-#         agent_id = data.get('agent_id')
-#         user_query = data.get('query')
-#
-#         if not agent_id or not user_query:
-#             print("Missing agent_id or query in request")
-#             return Response({"error": "Agent ID and query are required"}, status=400)
-#
-#         print("Fetching agent details for agent_id:", agent_id)
-#         # Retrieve agent details from the database
-#         agent = db.read_agent(agent_id)
-#         if not agent:
-#             print("Agent not found for agent_id:", agent_id)
-#             return Response({"error": "Agent not found"}, status=404)
-#
-#         dyn_agent=agent[7]
-#         dynamic_agent=db.read_dynamic_agent(dyn_agent)
-#
-#         # Extract agent details
-#         agent_details = {
-#             "name": dynamic_agent[1],
-#             "agent_goal": dynamic_agent[2],
-#             "agent_description": dynamic_agent[3],
-#             "agent_instructions":dynamic_agent[4],
-#             "tools":agent[4]
-#         }
-#         print("Agent details:", agent_details)
-#
-#         # Retrieve API key from the environment table
-#         print("Fetching environment details for env_id:", agent[6])
-#         env_details = db.read_environment(agent[6])
-#         if not env_details or not env_details[2]:
-#             print("API key not found in environment table for env_id:", agent_details['env_id'])
-#             return Response({"error": "API key not found in environment table"}, status=500)
-#
-#         openai_api_key = env_details[2]
-#         print("OpenAI API key retrieved successfully")
-#
-#         # Prepare payload for OpenAI API request
-#         url = "https://api.openai.com/v1/chat/completions"
-#         headers = {
-#             "Authorization": f"Bearer {openai_api_key}",
-#             "Content-Type": "application/json"
-#         }
-#         payload = {
-#             "model": "gpt-4o-mini",  # Adjust the model based on your requirements
-#             "messages": [
-#                 {"role": "system", "content": generate_system_prompt(agent_details)},
-#                 {"role": "user", "content": user_query}
-#             ],
-#             "max_tokens": 1500
-#         }
-#         print("Payload prepared for OpenAI API request:", payload)
-#
-#         # Send the query to the OpenAI environment
-#         print("Sending request to OpenAI API...")
-#         response = requests.post(url, headers=headers, json=payload)
-#         print("OpenAI API response status code:", response.status_code)
-#
-#         if response.status_code == 200:
-#             openai_response = response.json()
-#             print("OpenAI API response:", openai_response)
-#
-#             # Extract the 'choices' key from the OpenAI response to get the content
-#             chat_content = openai_response.get("choices", [{}])[0].get("message", {}).get("content", "")
-#             print("Extracted chat content:", chat_content)
-#
-#             return Response({
-#                 "success": True,
-#                 "response": markdown_to_html(chat_content)
-#             }, status=200)
-#         else:
-#             print("Error response from OpenAI API:", response.text)
-#             return Response({
-#                 "success": False,
-#                 "error": response.text
-#             }, status=500)
-#
-#     except Exception as e:
-#         print("Exception occurred:", str(e))
-#         return Response({"error": str(e)}, status=400)
 
 from wyge.agents.prebuilt_agents import GoogleDriveAgent, EmailAgent
 
